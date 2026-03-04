@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatórios | RSP Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+
+<nav class="navbar">
+    <div class="brand">
+        <h1 class="brand-title">RSP <span style="color:var(--primary);">Serviços</span></h1>
+    </div>
+    <div class="nav-links">
+        <a href="index.html">Dashboard</a>
+        <a href="service_form.html">Nova OS</a>
+        <a href="clientes.html">Clientes</a>
+        <a href="reports.html">Relatórios</a>
+        <a href="configuracoes.html">Configurações</a>
+    </div>
+</nav>
+
+<div class="container" id="reports-container">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.75rem;flex-wrap:wrap;gap:1rem;">
+        <h2>Relatórios de Desempenho</h2>
+        <button class="btn btn-primary" onclick="exportReportToPDF()">📄 Exportar PDF</button>
+    </div>
+
+    <div id="pdf-content">
+        <div id="pdf-header" style="display:none;text-align:center;margin-bottom:2rem;">
+            <h1 style="color:var(--primary);">RSP PRESTAÇÃO DE SERVIÇOS</h1>
+            <h3>Relatório de Desempenho</h3>
+            <p id="pdf-date" style="color:var(--text-muted);"></p>
+        </div>
+
+        <!-- Métricas -->
+        <div class="dashboard-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));">
+            <div class="stat-card">
+                <h3>Faturamento Total</h3>
+                <div class="value" id="report-revenue" style="font-size:1.8rem;">—</div>
+                <p style="font-size:.78rem;margin-top:.5rem;">Aprovados + Concluídos</p>
+            </div>
+            <div class="stat-card" style="border-left-color:var(--success);">
+                <h3>OS Aprovadas</h3>
+                <div class="value" style="color:var(--success);" id="report-approved">—</div>
+            </div>
+            <div class="stat-card" style="border-left-color:var(--danger);">
+                <h3>OS Recusadas</h3>
+                <div class="value" style="color:var(--danger);" id="report-rejected">—</div>
+            </div>
+            <div class="stat-card" style="border-left-color:var(--primary);">
+                <h3>Taxa de Conversão</h3>
+                <div class="value" style="color:var(--primary);font-size:2rem;" id="report-conversion">—</div>
+                <p style="font-size:.78rem;margin-top:.5rem;">Aprovadas / (Aprovadas + Recusadas)</p>
+            </div>
+        </div>
+
+        <!-- Tabela por categoria -->
+        <div class="card" style="margin-top:1.5rem;">
+            <h3>Serviços por Categoria</h3>
+            <div class="table-container">
+                <table id="report-categories-table">
+                    <thead>
+                        <tr>
+                            <th>Categoria</th>
+                            <th>Qtd. de OS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="2" style="text-align:center;color:var(--text-muted);padding:2rem;">Carregando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="app.js"></script>
+<script>
+    const pdfDate = document.getElementById('pdf-date');
+    if (pdfDate) pdfDate.textContent = 'Gerado em ' + new Date().toLocaleDateString('pt-BR');
+</script>
+</body>
+</html>

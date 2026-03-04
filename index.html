@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RSP Dashboard | Prestação de Serviços</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<nav class="navbar">
+    <div class="brand">
+        <h1 class="brand-title">RSP <span style="color:var(--primary);">Serviços</span></h1>
+    </div>
+    <div class="nav-links">
+        <a href="index.html">Dashboard</a>
+        <a href="service_form.html">Nova OS</a>
+        <a href="clientes.html">Clientes</a>
+        <a href="reports.html">Relatórios</a>
+        <a href="configuracoes.html">Configurações</a>
+    </div>
+</nav>
+
+<div class="container">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.75rem;flex-wrap:wrap;gap:1rem;">
+        <div>
+            <h2 style="margin-bottom:.2rem;">Visão Geral</h2>
+            <p style="font-size:.88rem;color:var(--text-muted);" id="dash-date"></p>
+        </div>
+        <a href="service_form.html" class="btn btn-primary">+ Novo Orçamento</a>
+    </div>
+
+    <div class="dashboard-grid">
+        <div class="stat-card">
+            <h3>Pendentes / Aguardando</h3>
+            <div class="value" id="stat-pending">—</div>
+        </div>
+        <div class="stat-card" style="border-left-color:var(--success);">
+            <h3>Serviços Aprovados</h3>
+            <div class="value" style="color:var(--success);" id="stat-inprogress">—</div>
+        </div>
+        <div class="stat-card" style="border-left-color:var(--info);">
+            <h3>Concluídos</h3>
+            <div class="value" style="color:var(--info);" id="stat-completed">—</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
+            <h3 style="border:none;padding:0;margin:0;">Ordens de Serviço Recentes</h3>
+            <span id="total-os-label" style="font-size:.82rem;color:var(--text-muted);"></span>
+        </div>
+        <div class="table-container">
+            <table id="dashboard-table">
+                <thead>
+                    <tr>
+                        <th>OS #</th>
+                        <th>Cliente</th>
+                        <th>Categoria</th>
+                        <th>Data</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="app.js"></script>
+<script>
+    // Data no header
+    const dd = document.getElementById('dash-date');
+    if (dd) dd.textContent = new Date().toLocaleDateString('pt-BR', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+</script>
+</body>
+</html>

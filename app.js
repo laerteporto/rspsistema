@@ -1,0 +1,648 @@
+// app.js - RSP System v2 — localStorage é a fonte de verdade
+// Firebase é secundário (sync em background). Nunca sobrescreve dados locais frescos.
+
+// ─── Firebase Config ───────────────────────────────────────────────────────
+const firebaseConfig = {
+    apiKey: "AIzaSyBlJ9QtqdMql5WM7AysOAW-KMGRlkqo7bE",
+    authDomain: "rpssystem.firebaseapp.com",
+    projectId: "rpssystem",
+    storageBucket: "rpssystem.firebasestorage.app",
+    messagingSenderId: "1043377468490",
+    appId: "1:1043377468490:web:fc9cccacb9558441b6a2b3"
+};
+
+let db = null;
+
+function initFirebase() {
+    try {
+        if (!firebase.apps || firebase.apps.length === 0) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        db = firebase.firestore();
+        console.log('🔥 Firebase instanciado');
+    } catch (e) {
+        console.warn('⚠️ Firebase indisponível:', e.message);
+        db = null;
+    }
+}
+
+// ─── Toast ─────────────────────────────────────────────────────────────────
+function showToast(msg, type = 'info', duration = 4000) {
+    let el = document.getElementById('_rsp_toast');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = '_rsp_toast';
+        el.className = 'toast';
+        document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.className = 'toast ' + type;
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
+    clearTimeout(el._timer);
+    el._timer = setTimeout(() => el.classList.remove('show'), duration);
+}
+
+// ─── LocalStorage — FONTE DE VERDADE ──────────────────────────────────────
+const LS = {
+    getOrders: () => {
+        try { return JSON.parse(localStorage.getItem('rsp_orders')) || []; }
+        catch(e) { return []; }
+    },
+    saveOrders: (v) => {
+        try { localStorage.setItem('rsp_orders', JSON.stringify(v)); }
+        catch(e) { console.error('LS saveOrders:', e); }
+    },
+    getClients: () => {
+        try { return JSON.parse(localStorage.getItem('rsp_clients')) || []; }
+        catch(e) { return []; }
+    },
+    saveClients: (v) => {
+        try { localStorage.setItem('rsp_clients', JSON.stringify(v)); }
+        catch(e) { console.error('LS saveClients:', e); }
+    },
+    getSettings: () => {
+        try {
+            return JSON.parse(localStorage.getItem('rsp_settings')) ||
+                { companyName: 'RSP PRESTAÇÃO DE SERVIÇOS', owner: 'Rogério Porto', phone: '(62) 98114-7395' };
+        } catch(e) {
+            return { companyName: 'RSP PRESTAÇÃO DE SERVIÇOS', owner: 'Rogério Porto', phone: '(62) 98114-7395' };
+        }
+    },
+    saveSettings: (v) => {
+        try { localStorage.setItem('rsp_settings', JSON.stringify(v)); }
+        catch(e) { console.error('LS saveSettings:', e); }
+    },
+};
+
+// ─── Persist Order: localStorage imediato + Firebase background ────────────
+function persistOrder(orderData) {
+    const id = String(orderData.id);
+
+    // Salva LOCAL — síncrono, confiável, imediato
+    const orders = LS.getOrders();
+    const idx = orders.findIndex(o => String(o.id) === id);
+    if (idx >= 0) orders[idx] = orderData;
+    else orders.push(orderData);
+    LS.saveOrders(orders);
+    console.log('💾 OS #' + id + ' salva local');
+
+    // Firebase em background — não bloqueia nada
+    if (db) {
+        db.collection('orders').doc(id).set(orderData)
+            .then(() => console.log('☁️ OS #' + id + ' sincronizada Firebase'))
+            .catch(e => console.warn('⚠️ Firebase OS:', e.message));
+    }
+}
+
+// ─── Persist Client: localStorage imediato + Firebase background ───────────
+function persistClient(clientData) {
+    const clients = LS.getClients();
+    const idx = clients.findIndex(c => c.phone === clientData.phone);
+    if (idx >= 0) {
+        clients[idx] = { ...clients[idx], ...clientData }; // atualiza se existe
+    } else {
+        clients.push(clientData);
+    }
+    LS.saveClients(clients);
+    console.log('💾 Cliente salvo local:', clientData.name);
+
+    // Firebase background
+    if (db) {
+        db.collection('clients').where('phone', '==', clientData.phone).get()
+            .then(snap => {
+                if (snap.empty) {
+                    db.collection('clients').add(clientData)
+                        .then(() => console.log('☁️ Cliente Firebase:', clientData.name))
+                        .catch(e => console.warn('⚠️ Firebase add client:', e.message));
+                }
+            })
+            .catch(e => console.warn('⚠️ Firebase query client:', e.message));
+    }
+}
+
+// ─── Load Orders: local + merge Firebase (sem sobrescrever local) ──────────
+async function loadAllOrders() {
+    const local = LS.getOrders();
+    if (!db) return local;
+    try {
+        const snap = await db.collection('orders').get();
+        if (snap.empty) return local;
+        const remote = snap.docs.map(d => ({ ...d.data(), _fbDocId: d.id }));
+        // Merge: local tem prioridade (mais recente)
+        const map = {};
+        remote.forEach(o => { map[String(o.id)] = o; });
+        local.forEach(o  => { map[String(o.id)] = o; }); // local sobrescreve remote
+        const merged = Object.values(map);
+        LS.saveOrders(merged);
+        return merged;
+    } catch (e) {
+        console.warn('Firebase loadOrders:', e.message);
+        return local;
+    }
+}
+
+// ─── Load Clients: local + merge Firebase (sem sobrescrever local) ─────────
+async function loadAllClients() {
+    const local = LS.getClients();
+    if (!db) return local;
+    try {
+        const snap = await db.collection('clients').get();
+        if (snap.empty) return local;
+        const remote = snap.docs.map(d => ({ ...d.data(), _fbDocId: d.id }));
+        // Merge: local tem prioridade
+        const map = {};
+        remote.forEach(c => { map[c.phone] = c; });
+        local.forEach(c  => { map[c.phone] = c; }); // local sobrescreve
+        const merged = Object.values(map);
+        LS.saveClients(merged);
+        return merged;
+    } catch (e) {
+        console.warn('Firebase loadClients:', e.message);
+        return local;
+    }
+}
+
+const generateId = () => Math.floor(10000 + Math.random() * 90000);
+
+function escHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function setActiveNav() {
+    const page = window.location.pathname.split('/').pop() || 'index.html';
+    document.querySelectorAll('.nav-links a').forEach(a => {
+        a.classList.toggle('active', a.getAttribute('href') === page);
+    });
+}
+
+function statusBadge(status) {
+    const map = {
+        pending:           { label: '⏸ Pendente',           cls: 'badge-pending'   },
+        awaiting_approval: { label: '⏳ Aguardando Cliente', cls: 'badge-pending'   },
+        approved:          { label: '✅ Aprovado',           cls: 'badge-approved'  },
+        rejected:          { label: '❌ Não Aprovado',       cls: 'badge-rejected'  },
+        completed:         { label: '🏁 Concluído',          cls: 'badge-completed' },
+    };
+    const s = map[status] || { label: 'Pendente', cls: 'badge-pending' };
+    return `<span class="badge ${s.cls}">${s.label}</span>`;
+}
+
+// ─── Router ────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    initFirebase();
+    setActiveNav();
+    if (document.getElementById('service-form'))       initServiceForm();
+    if (document.getElementById('dashboard-table'))    initDashboard();
+    if (document.getElementById('reports-container'))  initReports();
+    if (document.getElementById('clientes-container')) initClientsPage();
+    if (document.getElementById('config-container'))   initConfigPage();
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════════════════════════
+async function initDashboard() {
+    const tbody = document.querySelector('#dashboard-table tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-muted);">⏳ Carregando...</td></tr>';
+
+    function renderOrders(orders) {
+        const sorted = [...orders].sort((a, b) => new Date(b.date) - new Date(a.date));
+        tbody.innerHTML = '';
+        if (!sorted.length) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:3rem;color:var(--text-muted);">
+                <div style="font-size:2rem;margin-bottom:.5rem;">📋</div>
+                Nenhuma OS cadastrada. <a href="service_form.html" style="color:var(--primary);font-weight:600;">Criar primeira OS</a>
+            </td></tr>`;
+            updateStats([]);
+            return;
+        }
+        sorted.forEach(o => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>#${o.id}</strong></td>
+                <td>${escHtml(o.clientName || '-')}</td>
+                <td><span style="background:var(--primary-light);color:var(--primary-dark);padding:.2rem .6rem;border-radius:4px;font-size:.8rem;font-weight:600;">${escHtml(o.category || '-')}</span></td>
+                <td style="color:var(--text-muted);font-size:.88rem;">${new Date(o.date).toLocaleDateString('pt-BR')}</td>
+                <td>${statusBadge(o.status)}</td>
+                <td><button class="btn btn-sm btn-outline" onclick="location.href='service_form.html?id=${o.id}'">Ver OS</button></td>`;
+            tbody.appendChild(tr);
+        });
+        updateStats(sorted);
+    }
+
+    function updateStats(orders) {
+        const byStatus = (s) => orders.filter(o => o.status === s).length;
+        const el = id => document.getElementById(id);
+        if (el('stat-pending'))    el('stat-pending').textContent    = byStatus('pending') + byStatus('awaiting_approval');
+        if (el('stat-inprogress')) el('stat-inprogress').textContent = byStatus('approved');
+        if (el('stat-completed'))  el('stat-completed').textContent  = byStatus('completed');
+    }
+
+    // Mostra local imediatamente
+    renderOrders(LS.getOrders());
+
+    // Merge Firebase sem sobrescrever local
+    loadAllOrders().then(renderOrders);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SERVICE FORM
+// ═══════════════════════════════════════════════════════════════════════════
+async function initServiceForm() {
+    const saveBtn      = document.getElementById('btn-save-draft');
+    const sendWABtn    = document.getElementById('btn-send-whatsapp');
+    const photoInput   = document.getElementById('service-photo');
+    const previewGrid  = document.getElementById('photo-preview-container');
+    const photoCount   = document.getElementById('photo-count-label');
+    const clientSelect = document.getElementById('client-select');
+
+    let currentOSId = generateId();
+    let photos = [];
+    let isSaving = false;
+
+    // Carrega dropdown
+    async function loadClientSelect() {
+        if (!clientSelect) return;
+        const clients = await loadAllClients();
+        while (clientSelect.options.length > 1) clientSelect.remove(1);
+        if (!clients.length) {
+            const opt = new Option('(Nenhum cliente — vá em Clientes e cadastre)', '');
+            opt.disabled = true;
+            clientSelect.add(opt);
+            return;
+        }
+        [...clients].sort((a, b) => a.name.localeCompare(b.name, 'pt')).forEach(c => {
+            const opt = new Option(c.name, c.phone);
+            opt.dataset.phone = c.phone;
+            opt.dataset.name  = c.name;
+            clientSelect.add(opt);
+        });
+    }
+    await loadClientSelect();
+
+    window.fillClientData = function () {
+        const opt = clientSelect?.options[clientSelect.selectedIndex];
+        const phoneEl = document.getElementById('client-phone');
+        const nameEl  = document.getElementById('client-name');
+        if (opt && opt.value) {
+            if (phoneEl) phoneEl.value = opt.dataset.phone || opt.value;
+            if (nameEl)  nameEl.value  = opt.dataset.name  || opt.text;
+        } else {
+            if (phoneEl) phoneEl.value = '';
+            if (nameEl)  nameEl.value  = '';
+        }
+    };
+
+    if (photoInput) {
+        photoInput.addEventListener('change', e => {
+            const files = Array.from(e.target.files);
+            const slots = 5 - photos.length;
+            if (slots <= 0) { showToast('Máximo de 5 fotos já atingido.', 'error'); photoInput.value = ''; return; }
+            files.slice(0, slots).forEach(file => {
+                const r = new FileReader();
+                r.onload = ev => { photos.push(ev.target.result); renderThumb(ev.target.result); updateCount(); };
+                r.readAsDataURL(file);
+            });
+            photoInput.value = '';
+        });
+    }
+
+    function renderThumb(b64) {
+        const wrap = document.createElement('div'); wrap.className = 'photo-thumb';
+        const img  = document.createElement('img');  img.src = b64;
+        const btn  = document.createElement('button'); btn.className = 'remove-btn'; btn.type = 'button'; btn.textContent = '✕';
+        btn.onclick = () => { wrap.remove(); photos = photos.filter(p => p !== b64); updateCount(); };
+        wrap.appendChild(img); wrap.appendChild(btn);
+        previewGrid.appendChild(wrap);
+    }
+
+    function updateCount() {
+        if (!photoCount) return;
+        const n = photos.length;
+        photoCount.textContent = n ? `${n} foto${n>1?'s':''} selecionada${n>1?'s':''}` : '';
+    }
+
+    function getClientName() {
+        const h = document.getElementById('client-name');
+        return h ? h.value.trim() : '';
+    }
+
+    function buildOrder(id, status) {
+        const raw = (document.getElementById('service-value').value || '0').replace(/[^\d,.]/g,'').replace(',','.');
+        return {
+            id,
+            clientName:   getClientName() || 'Cliente',
+            phone:        (document.getElementById('client-phone').value || '').trim(),
+            category:     document.getElementById('service-category').value || '',
+            description:  document.getElementById('service-description').value || '',
+            value:        parseFloat(raw) || 0,
+            photosBase64: photos,
+            status,
+            date: new Date().toISOString()
+        };
+    }
+
+    // Modo edição
+    const editId = new URLSearchParams(window.location.search).get('id');
+    if (editId) {
+        currentOSId = parseInt(editId, 10);
+        const all = await loadAllOrders();
+        const ex  = all.find(o => String(o.id) === String(editId));
+        if (ex) {
+            document.getElementById('client-phone').value        = ex.phone       || '';
+            document.getElementById('service-category').value    = ex.category    || '';
+            document.getElementById('service-description').value = ex.description || '';
+            const hn = document.getElementById('client-name');
+            if (hn) hn.value = ex.clientName || '';
+            document.getElementById('service-value').value = (ex.value || 0).toFixed(2).replace('.', ',');
+
+            const ps = ex.photosBase64 || (ex.photoBase64 ? [ex.photoBase64] : []);
+            ps.forEach(p => { photos.push(p); renderThumb(p); });
+            updateCount();
+
+            const h2 = document.getElementById('page-title');
+            if (h2) h2.textContent = `Editar OS #${currentOSId}`;
+
+            if (ex.phone) {
+                for (let i = 0; i < clientSelect.options.length; i++) {
+                    if (clientSelect.options[i].value === ex.phone) { clientSelect.selectedIndex = i; break; }
+                }
+            }
+
+            if (ex.status === 'approved') {
+                const area = document.querySelector('.btn-area');
+                if (area) {
+                    const btn = document.createElement('button');
+                    btn.type = 'button'; btn.className = 'btn btn-secondary';
+                    btn.textContent = '🏁 Marcar como Concluído';
+                    btn.onclick = () => {
+                        if (isSaving) return;
+                        isSaving = true; btn.disabled = true; btn.textContent = '⏳ Salvando...';
+                        persistOrder({ ...ex, status: 'completed' });
+                        showToast('✅ OS concluída!', 'success');
+                        setTimeout(() => location.href = 'index.html', 1200);
+                    };
+                    area.appendChild(btn);
+                }
+            }
+        }
+    }
+
+    // SALVAR RASCUNHO
+    if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+            if (isSaving) return;
+            const phone    = document.getElementById('client-phone').value.trim();
+            const category = document.getElementById('service-category').value;
+            if (!phone) { showToast('⚠️ Selecione um cliente primeiro.', 'error'); return; }
+            if (!category || category === 'Selecione...' || category === '') {
+                showToast('⚠️ Selecione a categoria do serviço.', 'error'); return;
+            }
+            isSaving = true;
+            saveBtn.disabled = true;
+            saveBtn.textContent = '⏳ Salvando...';
+
+            persistOrder(buildOrder(currentOSId, 'pending')); // síncrono no LS
+            showToast(`✅ OS #${currentOSId} salva!`, 'success');
+            setTimeout(() => location.href = 'index.html', 1200);
+        });
+    }
+
+    // ENVIAR WHATSAPP
+    if (sendWABtn) {
+        sendWABtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (isSaving) return;
+            const phone    = document.getElementById('client-phone').value.trim();
+            const category = document.getElementById('service-category').value;
+            const name     = getClientName();
+
+            if (!phone) { showToast('⚠️ Selecione um cliente antes de enviar.', 'error'); return; }
+            if (!category || category === '' || category === 'Selecione...') {
+                showToast('⚠️ Selecione a categoria do serviço.', 'error'); return;
+            }
+
+            isSaving = true;
+            sendWABtn.disabled = true;
+            sendWABtn.textContent = '⏳ Preparando...';
+
+            // Salva OS e cliente no LS (síncrono)
+            persistOrder(buildOrder(currentOSId, 'awaiting_approval'));
+            persistClient({ name: name || 'Cliente', phone, address: '', email: '' });
+
+            const cleanPhone = phone.replace(/\D/g, '');
+            const settings   = LS.getSettings();
+
+            // URL de aprovação — usa publicUrl configurada ou mostra aviso
+            let approvalUrl;
+            const pubUrl = (settings.publicUrl || '').trim().replace(/\/+$/, '');
+            if (pubUrl) {
+                approvalUrl = pubUrl + '/quote_approval.html?id=' + currentOSId;
+            } else {
+                showToast('⚠️ Configure a URL Pública em Configurações para o cliente acessar o link!', 'error', 7000);
+                const base = window.location.href.substring(0, window.location.href.lastIndexOf('/'));
+                approvalUrl = base + '/quote_approval.html?id=' + currentOSId;
+            }
+
+            const msgText = '*' + settings.companyName.toUpperCase() + '*' +
+                '\nOlá ' + (name || 'Cliente') + '! Segue o orçamento para o serviço de *' + category + '*.' +
+                '\n\nToque no link para visualizar e responder:\n👇\n' + approvalUrl;
+
+            window.open(`https://wa.me/55${cleanPhone}?text=${encodeURIComponent(msgText)}`, '_blank');
+            showToast('✅ OS salva! Abrindo WhatsApp...', 'success');
+            setTimeout(() => location.href = 'index.html', 1500);
+        });
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CLIENTES PAGE — localStorage como fonte de verdade, sem onSnapshot
+// ═══════════════════════════════════════════════════════════════════════════
+async function initClientsPage() {
+    const form  = document.getElementById('client-form');
+    const tbody = document.querySelector('#clients-table tbody');
+
+    function renderTable(clients) {
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        const label = document.getElementById('client-count-label');
+
+        if (!clients || !clients.length) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2.5rem;color:var(--text-muted);">Nenhum cliente cadastrado.</td></tr>';
+            if (label) label.textContent = '';
+            return;
+        }
+
+        const sorted = [...clients].sort((a, b) => a.name.localeCompare(b.name, 'pt'));
+        if (label) label.textContent = `${sorted.length} cliente${sorted.length > 1 ? 's' : ''} cadastrado${sorted.length > 1 ? 's' : ''}`;
+
+        sorted.forEach((c, i) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${escHtml(c.name)}</strong></td>
+                <td><a href="https://wa.me/55${(c.phone||'').replace(/\D/g,'')}" target="_blank"
+                    style="color:var(--whatsapp);text-decoration:none;font-weight:500;">📱 ${escHtml(c.phone)}</a></td>
+                <td style="color:var(--text-muted);font-size:.88rem;">${escHtml(c.address || '-')}</td>
+                <td style="color:var(--text-muted);font-size:.88rem;">${escHtml(c.email   || '-')}</td>
+                <td><button class="btn btn-sm btn-outline" style="color:var(--danger);border-color:var(--danger);"
+                    onclick="deleteClientByIndex(${i})">Excluir</button></td>`;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // Carrega local primeiro — imediato
+    renderTable(LS.getClients());
+
+    // Depois tenta merge com Firebase (só leitura, não substitui local)
+    loadAllClients().then(merged => {
+        renderTable(merged);
+    });
+
+    // SEM onSnapshot — evita sobrescrever dados locais frescos
+    // Firebase é sync apenas no save, não precisa de listener aqui
+
+    window.deleteClientByIndex = function (index) {
+        const sorted = [...LS.getClients()].sort((a, b) => a.name.localeCompare(b.name, 'pt'));
+        const c = sorted[index];
+        if (!c || !confirm(`Excluir o cliente "${c.name}"?`)) return;
+
+        const all = LS.getClients();
+        const i2  = all.findIndex(x => x.phone === c.phone);
+        if (i2 >= 0) { all.splice(i2, 1); LS.saveClients(all); }
+        renderTable(LS.getClients());
+
+        if (db && c._fbDocId) {
+            db.collection('clients').doc(c._fbDocId).delete()
+                .catch(e => console.warn('Firebase delete:', e.message));
+        }
+        showToast(`Cliente "${c.name}" removido.`, 'info');
+    };
+
+    if (!form) return;
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const btn = form.querySelector('button[type="submit"]');
+        if (btn.disabled) return;
+
+        const name    = (document.getElementById('new-client-name').value    || '').trim();
+        const phone   = (document.getElementById('new-client-phone').value   || '').trim();
+        const address = (document.getElementById('new-client-address').value || '').trim();
+        const email   = (document.getElementById('new-client-email').value   || '').trim();
+
+        if (!name)  { showToast('⚠️ Informe o nome do cliente.', 'error'); return; }
+        if (!phone) { showToast('⚠️ Informe o WhatsApp do cliente.', 'error'); return; }
+
+        const dup = LS.getClients().find(c => c.phone === phone);
+        if (dup)    { showToast(`Já existe um cliente com este número: ${dup.name}`, 'error'); return; }
+
+        btn.disabled = true;
+        btn.textContent = '⏳ Salvando...';
+
+        const clientData = { name, phone, address, email };
+
+        // Salva LOCAL — imediato e confiável
+        const clients = LS.getClients();
+        clients.push(clientData);
+        LS.saveClients(clients);
+
+        // Renderiza imediatamente com os dados do LS (fonte de verdade)
+        renderTable(LS.getClients());
+
+        // Firebase background — não trava a UI
+        if (db) {
+            db.collection('clients').add(clientData)
+                .then(() => console.log('☁️ Cliente Firebase:', name))
+                .catch(err => console.warn('Firebase client:', err.message));
+        }
+
+        showToast(`✅ Cliente "${name}" cadastrado!`, 'success');
+        form.reset();
+        btn.disabled = false;
+        btn.textContent = 'Salvar Cliente';
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REPORTS
+// ═══════════════════════════════════════════════════════════════════════════
+async function initReports() {
+    function render(orders) {
+        let revenue = 0, approved = 0, rejected = 0;
+        const cats = {};
+        orders.forEach(o => {
+            if (o.status === 'completed' || o.status === 'approved') { revenue += (o.value || 0); approved++; }
+            else if (o.status === 'rejected') rejected++;
+            if (o.category && o.category !== 'Selecione...' && o.category !== '') {
+                cats[o.category] = (cats[o.category] || 0) + 1;
+            }
+        });
+        const el = id => document.getElementById(id);
+        if (el('report-revenue'))    el('report-revenue').textContent = `R$ ${revenue.toFixed(2).replace('.', ',')}`;
+        if (el('report-total-os'))   el('report-total-os').textContent = orders.length;
+        if (el('report-approved'))   el('report-approved').textContent = approved;
+        if (el('report-rejected'))   el('report-rejected').textContent = rejected;
+        const total = approved + rejected;
+        if (el('report-conversion')) el('report-conversion').textContent = total ? `${((approved/total)*100).toFixed(1)}%` : '0%';
+        const catTb = document.querySelector('#report-categories-table tbody');
+        if (catTb) {
+            const entries = Object.entries(cats).sort((a,b) => b[1]-a[1]);
+            catTb.innerHTML = entries.length
+                ? entries.map(([c,n]) => `<tr><td>${c}</td><td><strong>${n}</strong></td></tr>`).join('')
+                : '<tr><td colspan="2" style="text-align:center;color:var(--text-muted);">Nenhum dado ainda.</td></tr>';
+        }
+    }
+    render(LS.getOrders());
+    loadAllOrders().then(render);
+}
+
+window.exportReportToPDF = function () {
+    const el  = document.getElementById('pdf-content');
+    const hdr = document.getElementById('pdf-header');
+    if (hdr) hdr.style.display = 'block';
+    html2pdf().set({
+        margin: 0.5,
+        filename: `Relatorio_RSP_${new Date().toISOString().split('T')[0]}.pdf`,
+        image: { type:'jpeg', quality:0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit:'in', format:'letter', orientation:'portrait' }
+    }).from(el).save().then(() => { if (hdr) hdr.style.display = 'none'; });
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CONFIGURAÇÕES
+// ═══════════════════════════════════════════════════════════════════════════
+function initConfigPage() {
+    const form = document.getElementById('config-form');
+    if (!form) return;
+    const s = LS.getSettings();
+    document.getElementById('config-company-name').value = s.companyName;
+    document.getElementById('config-owner').value        = s.owner;
+    document.getElementById('config-phone').value        = s.phone;
+    const pubEl = document.getElementById('config-public-url');
+    if (pubEl) pubEl.value = s.publicUrl || '';
+
+    form.addEventListener('submit', e => {
+        e.preventDefault();
+        const pubUrl = document.getElementById('config-public-url');
+        LS.saveSettings({
+            companyName: document.getElementById('config-company-name').value.trim(),
+            owner:       document.getElementById('config-owner').value.trim(),
+            phone:       document.getElementById('config-phone').value.trim(),
+            publicUrl:   pubUrl ? pubUrl.value.trim() : '',
+        });
+        showToast('✅ Configurações salvas!', 'success');
+    });
+}
+
+// ─── Exports para quote_approval.html ─────────────────────────────────────
+window._rspDB        = () => db;
+window._rspLS        = LS;
+window._loadOrders   = loadAllOrders;
+window._persistOrder = persistOrder;
+window.showToast     = showToast;

@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orçamento RSP Serviços</title>
+    <!-- Totalmente standalone: sem dependência de styles.css ou app.js locais -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+    <style>
+        *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+        html{scroll-behavior:smooth}
+        body{
+            font-family:'DM Sans',system-ui,sans-serif;
+            background:#f0ede8;
+            min-height:100vh;
+            display:flex;
+            flex-direction:column;
+            -webkit-font-smoothing:antialiased;
+            color:#1a1814;
+        }
+
+        /* ── Container ── */
+        .wrap{
+            max-width:540px;
+            margin:0 auto;
+            padding:1.5rem 1rem 3rem;
+            width:100%;
+        }
+
+        /* ── Topo da marca ── */
+        .brand-top{
+            background:#fff;
+            border-radius:16px 16px 0 0;
+            padding:2rem 2rem 1.5rem;
+            text-align:center;
+            border-bottom:4px solid #d36e2d;
+        }
+        .brand-top h1{
+            font-family:'Syne',sans-serif;
+            font-size:1.8rem;
+            font-weight:800;
+            text-transform:uppercase;
+            letter-spacing:2px;
+            color:#1a1814;
+        }
+        .brand-top h1 span{color:#d36e2d}
+        .brand-top p{color:#9a958e;font-size:.88rem;margin-top:.35rem}
+
+        /* ── Card do orçamento ── */
+        .quote-card{
+            background:#fff;
+            border-radius:0 0 16px 16px;
+            padding:2rem;
+            box-shadow:0 12px 40px rgba(0,0,0,.12);
+        }
+
+        /* ── Badge de status ── */
+        .status-badge{
+            display:inline-block;
+            padding:.32rem .85rem;
+            border-radius:20px;
+            font-size:.75rem;
+            font-weight:600;
+            letter-spacing:.3px;
+            margin-bottom:1.5rem;
+        }
+        .badge-waiting  {background:#fff3e0;color:#e65100}
+        .badge-approved {background:#e8f5e9;color:#2e7d32}
+        .badge-rejected {background:#ffebee;color:#c62828}
+
+        /* ── Saudação ── */
+        .greeting h2{font-family:'Syne',sans-serif;font-size:1.25rem;font-weight:700}
+        .greeting p {color:#5a5650;margin-top:.4rem;font-size:.95rem}
+
+        /* ── Valor ── */
+        .amount-block{
+            text-align:center;
+            padding:1.5rem 0;
+            border-top:1px solid #e2e0da;
+            border-bottom:1px solid #e2e0da;
+            margin:1.5rem 0;
+        }
+        .amount-label{font-size:.72rem;text-transform:uppercase;letter-spacing:.8px;color:#9a958e;margin-bottom:.4rem}
+        .amount-value{
+            font-family:'Syne',sans-serif;
+            font-size:3.2rem;
+            font-weight:800;
+            color:#7b3e19;
+            line-height:1;
+        }
+
+        /* ── Caixa de descrição ── */
+        .desc-box{
+            background:#f7f6f3;
+            border-radius:8px;
+            padding:1.25rem;
+            margin:1.25rem 0;
+        }
+        .desc-box .box-label{
+            font-size:.7rem;text-transform:uppercase;letter-spacing:.8px;
+            color:#9a958e;font-weight:600;margin-bottom:.5rem;
+        }
+        .desc-box p{color:#1a1814;font-size:.93rem;line-height:1.6}
+
+        /* ── Fotos ── */
+        .photos-section{margin-top:1.5rem}
+        .photos-section .box-label{
+            font-size:.7rem;text-transform:uppercase;letter-spacing:.8px;
+            color:#9a958e;font-weight:600;margin-bottom:.65rem;
+        }
+        .photos-grid{display:flex;flex-wrap:wrap;gap:.65rem}
+        .photos-grid img{
+            width:85px;height:85px;
+            object-fit:cover;
+            border-radius:8px;
+            border:2px solid #e2e0da;
+            cursor:pointer;
+            transition:all .2s ease;
+        }
+        .photos-grid img:hover{border-color:#d36e2d;transform:scale(1.05)}
+
+        /* ── Botões de ação ── */
+        .action-buttons{display:flex;flex-direction:column;gap:.75rem;margin-top:2rem}
+
+        .btn{
+            display:flex;align-items:center;justify-content:center;gap:.5rem;
+            border:none;border-radius:10px;
+            font-family:'DM Sans',sans-serif;
+            font-weight:600;font-size:1rem;
+            cursor:pointer;padding:1.1rem;
+            transition:all .2s ease;
+            text-align:center;
+            width:100%;
+        }
+        .btn:disabled{opacity:.55;cursor:not-allowed}
+
+        .btn-approve{
+            background:#2e7d32;color:#fff;
+            font-size:1.1rem;
+            box-shadow:0 4px 16px rgba(46,125,50,.3);
+        }
+        .btn-approve:hover:not(:disabled){background:#256427;transform:translateY(-2px);box-shadow:0 6px 20px rgba(46,125,50,.35)}
+
+        .btn-reject{
+            background:transparent;color:#c62828;
+            border:2px solid #c62828;
+            font-size:1rem;
+        }
+        .btn-reject:hover:not(:disabled){background:#c62828;color:#fff}
+
+        /* ── Resposta final ── */
+        .final-answer{
+            text-align:center;padding:2rem 1.5rem;
+            border-radius:12px;font-weight:700;font-size:1.05rem;
+            margin-top:1.5rem;
+        }
+        .final-answer small{display:block;font-weight:400;font-size:.82rem;margin-top:.5rem;opacity:.8}
+
+        /* ── Rodapé de contato ── */
+        .contact-footer{
+            text-align:center;margin-top:2rem;
+            padding-top:1.5rem;border-top:1px solid #e2e0da;
+            font-size:.82rem;color:#9a958e;line-height:1.7;
+        }
+        .contact-footer a{color:#25D366;font-weight:600;text-decoration:none}
+        .contact-footer strong{color:#1a1814}
+
+        /* ── Loading / Erro ── */
+        .loading-state{
+            text-align:center;padding:3rem 1rem;color:#9a958e;
+        }
+        .loading-state .icon{font-size:2.5rem;display:block;margin-bottom:.75rem}
+
+        /* ── Spinner ── */
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .spinner{
+            width:32px;height:32px;border:3px solid #e2e0da;
+            border-top-color:#d36e2d;border-radius:50%;
+            animation:spin .8s linear infinite;margin:0 auto 1rem;
+        }
+
+        /* ── Lightbox ── */
+        #lightbox{
+            display:none;position:fixed;inset:0;
+            background:rgba(0,0,0,.88);z-index:9999;
+            align-items:center;justify-content:center;
+            padding:1rem;
+        }
+        #lightbox.open{display:flex}
+        #lightbox img{max-width:100%;max-height:90vh;border-radius:10px;object-fit:contain}
+        #lb-close{
+            position:absolute;top:1rem;right:1.25rem;
+            color:#fff;font-size:2rem;cursor:pointer;
+            background:none;border:none;line-height:1;
+            width:40px;height:40px;
+            display:flex;align-items:center;justify-content:center;
+            background:rgba(255,255,255,.15);border-radius:50%;
+        }
+        #lb-close:hover{background:rgba(255,255,255,.25)}
+
+        /* ── Toast ── */
+        #toast{
+            position:fixed;bottom:1.5rem;right:1.5rem;left:1.5rem;
+            max-width:380px;margin:0 auto;
+            padding:.9rem 1.25rem;border-radius:10px;
+            color:#fff;font-weight:500;font-size:.9rem;
+            box-shadow:0 8px 24px rgba(0,0,0,.2);
+            z-index:99999;
+            transform:translateY(120%);
+            transition:transform .3s cubic-bezier(.34,1.56,.64,1);
+            text-align:center;
+        }
+        #toast.show{transform:translateY(0)}
+        #toast.success{background:#2e7d32}
+        #toast.error  {background:#c62828}
+        #toast.info   {background:#d36e2d}
+
+        @media(max-width:400px){
+            .amount-value{font-size:2.5rem}
+            .quote-card{padding:1.5rem}
+        }
+    </style>
+</head>
+<body>
+
+<div class="wrap">
+    <div class="brand-top">
+        <h1>RSP <span>Serviços</span></h1>
+        <p>Atendimento rápido para residências e empresas</p>
+    </div>
+    <div class="quote-card" id="quote-card">
+        <div class="loading-state">
+            <div class="spinner"></div>
+            Carregando seu orçamento...
+        </div>
+    </div>
+</div>
+
+<!-- Lightbox -->
+<div id="lightbox" onclick="closeLb()">
+    <button id="lb-close" onclick="closeLb()">✕</button>
+    <img id="lb-img" src="" alt="Foto do serviço" onclick="event.stopPropagation()">
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Firebase Compat (CDN) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<script>
+// ── Configuração Firebase (standalone — não depende de app.js) ─────────────
+const FB_CONFIG = {
+    apiKey: "AIzaSyBlJ9QtqdMql5WM7AysOAW-KMGRlkqo7bE",
+    authDomain: "rpssystem.firebaseapp.com",
+    projectId: "rpssystem",
+    storageBucket: "rpssystem.firebasestorage.app",
+    messagingSenderId: "1043377468490",
+    appId: "1:1043377468490:web:fc9cccacb9558441b6a2b3"
+};
+
+// ── Utilitários ────────────────────────────────────────────────────────────
+function esc(s){ return s==null?'':String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function toast(msg, type='info', ms=4000){
+    const el=document.getElementById('toast');
+    el.textContent=msg; el.className='toast '+type;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.add('show')));
+    clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'), ms);
+}
+
+function openLb(src){ document.getElementById('lb-img').src=src; document.getElementById('lightbox').classList.add('open'); }
+function closeLb(){ document.getElementById('lightbox').classList.remove('open'); }
+
+// ── Inicializa Firebase ───────────────────────────────────────────────────
+let db = null;
+try {
+    if (!firebase.apps || firebase.apps.length === 0) firebase.initializeApp(FB_CONFIG);
+    db = firebase.firestore();
+} catch(e){ console.warn('Firebase init:', e.message); }
+
+// ── Carrega e exibe o orçamento ────────────────────────────────────────────
+const orderId = new URLSearchParams(window.location.search).get('id');
+const card    = document.getElementById('quote-card');
+
+async function loadAndRender() {
+    if (!orderId) {
+        card.innerHTML = `<div class="loading-state"><span class="icon">❌</span>Link inválido. ID do orçamento não encontrado.</div>`;
+        return;
+    }
+
+    let order = null;
+
+    // Tenta Firebase primeiro
+    if (db) {
+        try {
+            const snap = await db.collection('orders').doc(String(orderId)).get();
+            if (snap.exists) order = snap.data();
+        } catch(e){ console.warn('Firebase load:', e.message); }
+    }
+
+    if (!order) {
+        card.innerHTML = `<div class="loading-state">
+            <span class="icon">🔍</span>
+            <strong>Orçamento não encontrado.</strong><br>
+            <small style="margin-top:.5rem;display:block;">
+                Se você é o técnico, verifique se o sistema está hospedado online.<br>
+                <a href="#instrucoes" style="color:#d36e2d;font-weight:600;" onclick="showInstructions()">Ver instruções de hospedagem</a>
+            </small>
+        </div>
+        <div id="instrucoes" style="display:none;margin-top:1.5rem;padding:1.25rem;background:#fff3e0;border-radius:10px;border-left:4px solid #d36e2d;font-size:.85rem;line-height:1.8;">
+            <strong>⚠️ Sistema rodando localmente</strong><br>
+            O link <code>file://</code> não funciona para clientes externos.<br><br>
+            <strong>Soluções gratuitas para hospedar:</strong><br>
+            • <a href="https://firebase.google.com/docs/hosting" target="_blank" style="color:#d36e2d;">Firebase Hosting</a><br>
+            • <a href="https://pages.github.com" target="_blank" style="color:#d36e2d;">GitHub Pages</a><br>
+            • <a href="https://netlify.com" target="_blank" style="color:#d36e2d;">Netlify</a><br><br>
+            Após hospedar, configure a URL em <strong>Configurações → URL Pública do Sistema</strong>.
+        </div>`;
+        return;
+    }
+
+    renderOrder(order);
+}
+
+function renderOrder(order) {
+    const photos  = order.photosBase64 || (order.photoBase64 ? [order.photoBase64] : []);
+    const valFmt  = 'R$ ' + (order.value || 0).toFixed(2).replace('.', ',');
+    const done    = order.status === 'approved' || order.status === 'rejected';
+    const isApp   = order.status === 'approved';
+
+    // Badge
+    let badgeCls = 'badge-waiting', badgeTxt = '⏳ Aguardando sua resposta';
+    if (order.status === 'approved') { badgeCls = 'badge-approved'; badgeTxt = '✅ Aprovado'; }
+    if (order.status === 'rejected') { badgeCls = 'badge-rejected'; badgeTxt = '❌ Recusado'; }
+
+    // Fotos
+    let photosHtml = '';
+    if (photos.length) {
+        const imgs = photos.map((p,i) => `<img src="${p}" alt="Foto ${i+1}" onclick="openLb('${p}')" loading="lazy">`).join('');
+        photosHtml = `
+            <div class="photos-section">
+                <div class="box-label">📷 Fotos do Serviço (${photos.length})</div>
+                <div class="photos-grid">${imgs}</div>
+            </div>`;
+    }
+
+    // Ações
+    let actionsHtml = '';
+    if (done) {
+        actionsHtml = `
+            <div class="final-answer" style="background:${isApp?'#e8f5e9':'#ffebee'};color:${isApp?'#2e7d32':'#c62828'};">
+                ${isApp ? '✅ Você aprovou este orçamento.' : '❌ Você recusou este orçamento.'}
+                <small>Obrigado! A equipe RSP foi notificada.</small>
+            </div>`;
+    } else {
+        actionsHtml = `
+            <div class="action-buttons">
+                <button class="btn btn-approve" onclick="responder('approved')" id="btn-approve">
+                    ✅ Aprovar Orçamento
+                </button>
+                <button class="btn btn-reject" onclick="responder('rejected')" id="btn-reject">
+                    ❌ Recusar Orçamento
+                </button>
+            </div>`;
+    }
+
+    card.innerHTML = `
+        <span class="status-badge ${badgeCls}">${badgeTxt}</span>
+
+        <div class="greeting">
+            <h2>Olá, ${esc(order.clientName || 'Cliente')} 👋</h2>
+            <p>Segue o orçamento para o serviço de <strong>${esc(order.category || 'serviço')}</strong>.</p>
+        </div>
+
+        <div class="amount-block">
+            <div class="amount-label">Valor do Orçamento</div>
+            <div class="amount-value">${valFmt}</div>
+        </div>
+
+        <div class="desc-box">
+            <div class="box-label">📋 Descrição do Serviço</div>
+            <p>${esc(order.description || 'Nenhuma descrição informada.')}</p>
+        </div>
+
+        ${photosHtml}
+        ${actionsHtml}
+
+        <div class="contact-footer" id="contact-footer">
+            Dúvidas? Fale com <strong id="contact-name">a equipe RSP</strong> pelo WhatsApp:<br>
+            <a id="contact-wa" href="https://wa.me/556298114739" target="_blank">(62) 98114-7395</a>
+        </div>`;
+
+    // Carrega contato das configurações (se disponível no localStorage do técnico)
+    try {
+        const s = JSON.parse(localStorage.getItem('rsp_settings'));
+        if (s) {
+            const el = document.getElementById('contact-name');
+            const wa = document.getElementById('contact-wa');
+            if (el) el.textContent = s.owner || 'a equipe RSP';
+            if (wa) { wa.textContent = s.phone; wa.href = `https://wa.me/55${(s.phone||'').replace(/\D/g,'')}`; }
+        }
+    } catch(_){}
+}
+
+// ── Responder aprovação/recusa ─────────────────────────────────────────────
+window.responder = async function(newStatus) {
+    const btnApp = document.getElementById('btn-approve');
+    const btnRej = document.getElementById('btn-reject');
+    if (btnApp) btnApp.disabled = true;
+    if (btnRej) btnRej.disabled = true;
+    if (btnApp && newStatus === 'approved') btnApp.textContent = '⏳ Registrando...';
+    if (btnRej && newStatus === 'rejected') btnRej.textContent = '⏳ Registrando...';
+
+    let saved = false;
+
+    // Firebase
+    if (db) {
+        try {
+            await db.collection('orders').doc(String(orderId)).update({ status: newStatus });
+            saved = true;
+            console.log('✅ Status atualizado no Firebase');
+        } catch(e){ console.warn('Firebase update:', e.message); }
+    }
+
+    if (!saved) {
+        // Fallback: avisa que não salvou mas redireciona mesmo assim
+        toast('⚠️ Não foi possível registrar online. Informe o técnico.', 'error', 6000);
+        if (btnApp) { btnApp.disabled = false; btnApp.textContent = '✅ Aprovar Orçamento'; }
+        if (btnRej) { btnRej.disabled = false; btnRej.textContent = '❌ Recusar Orçamento'; }
+        return;
+    }
+
+    toast(
+        newStatus === 'approved' ? '✅ Orçamento aprovado! Obrigado.' : '❌ Orçamento recusado. Informamos o técnico.',
+        newStatus === 'approved' ? 'success' : 'error',
+        5000
+    );
+
+    setTimeout(() => window.location.reload(), 1800);
+};
+
+window.showInstructions = function() {
+    const el = document.getElementById('instrucoes');
+    if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    return false;
+};
+
+// Inicia
+loadAndRender();
+</script>
+</body>
+</html>

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configurações | RSP Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<nav class="navbar">
+    <div class="brand">
+        <h1 class="brand-title">RSP <span style="color:var(--primary);">Serviços</span></h1>
+    </div>
+    <div class="nav-links">
+        <a href="index.html">Dashboard</a>
+        <a href="service_form.html">Nova OS</a>
+        <a href="clientes.html">Clientes</a>
+        <a href="reports.html">Relatórios</a>
+        <a href="configuracoes.html">Configurações</a>
+    </div>
+</nav>
+
+<div class="container" id="config-container">
+    <h2 style="margin-bottom:1.75rem;">Configurações do Sistema</h2>
+
+    <div class="dashboard-grid" style="grid-template-columns:1fr 1fr;align-items:start;">
+
+        <!-- Perfil da empresa -->
+        <div class="card">
+            <h3>Perfil da Empresa</h3>
+            <form id="config-form">
+
+                <div class="form-group">
+                    <label>Nome Fantasia</label>
+                    <input type="text" id="config-company-name" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Responsável</label>
+                    <input type="text" id="config-owner" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Telefone / WhatsApp</label>
+                    <input type="text" id="config-phone" class="form-control" required>
+                    <p class="form-hint">Exibido na página de aprovação do cliente</p>
+                </div>
+
+                <!-- ──────────────────────────────────────────────────────── -->
+                <!-- CAMPO CRÍTICO: URL pública do sistema                    -->
+                <!-- ──────────────────────────────────────────────────────── -->
+                <div class="form-group" style="border-top:2px dashed var(--border);padding-top:1.5rem;margin-top:.5rem;">
+                    <label style="color:var(--primary);font-weight:700;">
+                        🌐 URL Pública do Sistema
+                        <span style="background:var(--primary);color:white;font-size:.65rem;padding:.2rem .5rem;border-radius:4px;margin-left:.4rem;vertical-align:middle;">OBRIGATÓRIO</span>
+                    </label>
+                    <input type="url" id="config-public-url" class="form-control"
+                        placeholder="https://seusite.com.br" style="border-color:var(--primary);">
+                    <div style="margin-top:.75rem;padding:1rem;background:#fff3e0;border-radius:8px;border-left:3px solid var(--primary);font-size:.82rem;line-height:1.7;">
+                        <strong>⚠️ Por que isso é necessário?</strong><br>
+                        O link enviado no WhatsApp precisa de uma URL que o cliente consiga abrir no celular.
+                        Um caminho local <code style="background:#fde0c8;padding:.1rem .3rem;border-radius:3px;">file:///home/...</code>
+                        só funciona no seu computador.<br><br>
+                        <strong>Opções gratuitas para hospedar o sistema:</strong><br>
+                        &nbsp;•&nbsp;<a href="https://firebase.google.com/docs/hosting" target="_blank" style="color:var(--primary);font-weight:600;">Firebase Hosting</a> — recomendado (já usa Firebase)<br>
+                        &nbsp;•&nbsp;<a href="https://pages.github.com" target="_blank" style="color:var(--primary);font-weight:600;">GitHub Pages</a> — simples e gratuito<br>
+                        &nbsp;•&nbsp;<a href="https://netlify.com" target="_blank" style="color:var(--primary);font-weight:600;">Netlify</a> — arraste e solte a pasta<br><br>
+                        Após hospedar, cole aqui a URL gerada (ex: <code>https://rpssystem.web.app</code>).
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width:100%;margin-top:1rem;">
+                    💾 Salvar Configurações
+                </button>
+            </form>
+        </div>
+
+        <!-- Coluna direita: status + ações -->
+        <div style="display:flex;flex-direction:column;gap:1.25rem;">
+
+            <!-- Status do link WhatsApp -->
+            <div class="card" style="height:fit-content;">
+                <h3>Status do Link WhatsApp</h3>
+                <div id="url-status-box" style="margin-top:1rem;"></div>
+            </div>
+
+            <!-- Informações do sistema -->
+            <div class="card" style="height:fit-content;">
+                <h3>Sobre o Sistema</h3>
+                <div style="margin-top:1rem;display:flex;flex-direction:column;gap:1rem;">
+                    <div style="padding:.9rem 1rem;background:var(--surface);border-radius:var(--radius-sm);">
+                        <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.7px;color:var(--text-muted);margin-bottom:.25rem;">Versão</div>
+                        <div style="font-weight:600;">RSP Sistema v2.0</div>
+                    </div>
+                    <div style="padding:.9rem 1rem;background:var(--surface);border-radius:var(--radius-sm);">
+                        <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.7px;color:var(--text-muted);margin-bottom:.5rem;">Ações</div>
+                        <div style="display:flex;flex-direction:column;gap:.5rem;">
+                            <button class="btn btn-outline btn-sm" style="text-align:left;"
+                                onclick="if(confirm('Limpar todos os dados locais? (não apaga o Firebase)'))
+                                { localStorage.clear(); showToast('Cache local apagado.','info'); }">
+                                🗑 Limpar cache local
+                            </button>
+                            <a href="index.html" class="btn btn-outline btn-sm" style="text-align:left;">
+                                🏠 Ir ao Dashboard
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+    // Mostra status do link em tempo real
+    function updateUrlStatus() {
+        const box = document.getElementById('url-status-box');
+        if (!box) return;
+        const s = window._rspLS ? window._rspLS.getSettings() : (JSON.parse(localStorage.getItem('rsp_settings')) || {});
+        const url = (s.publicUrl || '').trim();
+
+        if (!url) {
+            box.innerHTML = `
+                <div style="display:flex;align-items:flex-start;gap:.75rem;padding:1rem;background:#ffebee;border-radius:8px;border-left:3px solid #c62828;">
+                    <span style="font-size:1.5rem;line-height:1;">❌</span>
+                    <div>
+                        <strong style="color:#c62828;">URL pública não configurada</strong>
+                        <p style="font-size:.82rem;color:#5a5650;margin-top:.3rem;">
+                            Os links enviados no WhatsApp <strong>não funcionarão</strong> para os clientes.
+                            Configure a URL acima.
+                        </p>
+                    </div>
+                </div>`;
+        } else {
+            box.innerHTML = `
+                <div style="display:flex;align-items:flex-start;gap:.75rem;padding:1rem;background:#e8f5e9;border-radius:8px;border-left:3px solid #2e7d32;">
+                    <span style="font-size:1.5rem;line-height:1;">✅</span>
+                    <div style="word-break:break-all;">
+                        <strong style="color:#2e7d32;">URL configurada</strong>
+                        <p style="font-size:.82rem;color:#5a5650;margin-top:.3rem;">
+                            Link de exemplo que será enviado ao cliente:<br>
+                            <code style="background:#c8e6c9;padding:.2rem .4rem;border-radius:4px;font-size:.78rem;word-break:break-all;">
+                                ${url}/quote_approval.html?id=XXXXX
+                            </code>
+                        </p>
+                        <a href="${url}/quote_approval.html?id=teste" target="_blank"
+                            style="display:inline-block;margin-top:.6rem;font-size:.8rem;color:#2e7d32;font-weight:600;">
+                            🔗 Testar link →
+                        </a>
+                    </div>
+                </div>`;
+        }
+    }
+
+    // Atualiza status quando o campo muda
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(updateUrlStatus, 300); // aguarda app.js carregar
+        const urlInput = document.getElementById('config-public-url');
+        if (urlInput) urlInput.addEventListener('input', updateUrlStatus);
+    });
+</script>
+</body>
+</html>

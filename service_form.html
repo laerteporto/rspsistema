@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nova OS | RSP Serviços</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .wa-panel { border-top: 4px solid var(--whatsapp); }
+        .wa-panel > h3 { border-color: rgba(37,211,102,.25); }
+        #btn-send-whatsapp { width:100%; justify-content:center; padding:1rem; font-size:1rem; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar">
+    <div class="brand">
+        <h1 class="brand-title">RSP <span style="color:var(--primary);">Serviços</span></h1>
+    </div>
+    <div class="nav-links">
+        <a href="index.html">Dashboard</a>
+        <a href="service_form.html">Nova OS</a>
+        <a href="clientes.html">Clientes</a>
+        <a href="reports.html">Relatórios</a>
+        <a href="configuracoes.html">Configurações</a>
+    </div>
+</nav>
+
+<div class="container">
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.75rem;">
+        <a href="index.html" style="color:var(--text-muted);text-decoration:none;font-size:.9rem;">← Dashboard</a>
+        <span style="color:var(--border);">|</span>
+        <h2 id="page-title" style="margin:0;">Criar Ordem de Serviço</h2>
+    </div>
+
+    <div class="dashboard-grid" style="grid-template-columns:2fr 1fr;align-items:start;">
+
+        <!-- Formulário principal -->
+        <div class="card">
+            <h3>Detalhes do Serviço</h3>
+            <form id="service-form" style="margin-top:1.25rem;">
+
+                <div class="form-group">
+                    <label>Cliente *</label>
+                    <select id="client-select" class="form-control" onchange="fillClientData()">
+                        <option value="">— Selecione um cliente cadastrado —</option>
+                    </select>
+                    <p class="form-hint">Não encontrou? <a href="clientes.html" style="color:var(--primary);">Cadastre aqui</a></p>
+                </div>
+
+                <!-- Campo oculto para nome do cliente -->
+                <input type="hidden" id="client-name">
+
+                <div class="form-group">
+                    <label>WhatsApp do Cliente</label>
+                    <input type="text" id="client-phone" class="form-control" placeholder="Preenchido ao selecionar o cliente" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label>Categoria do Serviço *</label>
+                    <select id="service-category" class="form-control">
+                        <option value="">Selecione...</option>
+                        <option>Instalações</option>
+                        <option>Reparos</option>
+                        <option>Hidráulica</option>
+                        <option>Elétrica</option>
+                        <option>Pintura</option>
+                        <option>Jardinagem</option>
+                        <option>Outros</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Descrição do Serviço</label>
+                    <textarea id="service-description" class="form-control" rows="4"
+                        placeholder="Descreva detalhadamente o serviço a ser realizado..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Valor do Orçamento (R$)</label>
+                    <input type="text" id="service-value" class="form-control"
+                        placeholder="Ex: 350,00" style="max-width:200px;">
+                </div>
+
+                <div class="form-group">
+                    <label>📎 Fotos do Serviço</label>
+                    <div class="attachment-zone" onclick="document.getElementById('service-photo').click()">
+                        <span class="icon">📸</span>
+                        <strong style="color:var(--primary);">Clique para adicionar fotos</strong>
+                        <div class="hint">JPG ou PNG · máximo 5 fotos · serão incluídas no orçamento</div>
+                    </div>
+                    <input type="file" id="service-photo" accept="image/*" multiple style="display:none;">
+                    <div class="photo-grid" id="photo-preview-container"></div>
+                    <div id="photo-count-label" style="font-size:.82rem;color:var(--text-muted);margin-top:.5rem;"></div>
+                </div>
+
+                <!-- btn-area: local onde o botão "Concluído" é inserido dinamicamente -->
+                <div style="display:flex;gap:1rem;margin-top:1.5rem;flex-wrap:wrap;" class="btn-area">
+                    <button type="button" id="btn-save-draft" class="btn btn-secondary">💾 Salvar Rascunho</button>
+                </div>
+
+            </form>
+        </div>
+
+        <!-- Painel WhatsApp -->
+        <div class="card wa-panel" style="height:fit-content;">
+            <h3>Envio via WhatsApp</h3>
+            <p style="margin-top:1rem;margin-bottom:1.5rem;font-size:.9rem;color:var(--text-secondary);">
+                Gere automaticamente um link de aprovação e envie ao cliente pelo WhatsApp.
+            </p>
+
+            <div style="background:var(--surface);padding:1rem;border-radius:var(--radius-sm);
+                        margin-bottom:1.5rem;font-size:.85rem;line-height:1.6;
+                        border-left:3px solid var(--whatsapp);">
+                O cliente receberá um link com os detalhes, fotos e botões para
+                <strong>Aprovar</strong> ou <strong>Recusar</strong> o orçamento.
+            </div>
+
+            <!--
+                IMPORTANTE: este é um <button> (não <a>) para evitar bugs de navegação.
+                O JS em app.js captura o click via addEventListener.
+            -->
+            <button type="button" id="btn-send-whatsapp" class="btn btn-whatsapp">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7
+                             8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8
+                             8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5
+                             a8.48 8.48 0 0 1 8 8v.5z"></path>
+                </svg>
+                Enviar Orçamento pelo WhatsApp
+            </button>
+        </div>
+
+    </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

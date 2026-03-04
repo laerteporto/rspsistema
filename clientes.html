@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clientes | RSP Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<nav class="navbar">
+    <div class="brand">
+        <h1 class="brand-title">RSP <span style="color:var(--primary);">Serviços</span></h1>
+    </div>
+    <div class="nav-links">
+        <a href="index.html">Dashboard</a>
+        <a href="service_form.html">Nova OS</a>
+        <a href="clientes.html">Clientes</a>
+        <a href="reports.html">Relatórios</a>
+        <a href="configuracoes.html">Configurações</a>
+    </div>
+</nav>
+
+<div class="container" id="clientes-container">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.75rem;flex-wrap:wrap;gap:1rem;">
+        <h2>Clientes</h2>
+        <span id="client-count-label" style="font-size:.85rem;color:var(--text-muted);"></span>
+    </div>
+
+    <div class="dashboard-grid" style="grid-template-columns:1fr 2fr;align-items:start;">
+
+        <!-- Form cadastro -->
+        <div class="card" style="height:fit-content;">
+            <h3>Novo Cliente</h3>
+            <form id="client-form">
+                <div class="form-group">
+                    <label>Nome Completo *</label>
+                    <input type="text" id="new-client-name" class="form-control" placeholder="João da Silva" required>
+                </div>
+                <div class="form-group">
+                    <label>Telefone / WhatsApp *</label>
+                    <input type="text" id="new-client-phone" class="form-control" placeholder="(62) 99999-9999" required>
+                </div>
+                <div class="form-group">
+                    <label>Endereço</label>
+                    <input type="text" id="new-client-address" class="form-control" placeholder="Rua, Número, Bairro">
+                </div>
+                <div class="form-group">
+                    <label>E-mail</label>
+                    <input type="email" id="new-client-email" class="form-control" placeholder="joao@email.com">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%;">Salvar Cliente</button>
+            </form>
+        </div>
+
+        <!-- Lista -->
+        <div class="card">
+            <h3>Clientes Cadastrados</h3>
+            <div style="margin-bottom:1rem;">
+                <input type="text" id="client-search" class="form-control" placeholder="🔍 Buscar por nome ou telefone..." oninput="filterClients(this.value)" style="max-width:400px;">
+            </div>
+            <div class="table-container">
+                <table id="clients-table">
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>WhatsApp</th>
+                            <th>Endereço</th>
+                            <th>E-mail</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="app.js"></script>
+<script>
+    // Busca local de clientes na tabela
+    window.filterClients = function(q) {
+        const rows = document.querySelectorAll('#clients-table tbody tr');
+        const lower = q.toLowerCase();
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(lower) ? '' : 'none';
+        });
+    };
+</script>
+</body>
+</html>
