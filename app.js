@@ -26,6 +26,33 @@ function initFirebase() {
     }
 }
 
+// ─── Sync OS antigas do localStorage → Firebase ───────────────────────────
+// Roda uma vez no dashboard para recuperar OS que ficaram só no localStorage
+async function syncLocalToFirebase() {
+    if (!db) return;
+    const local = LS.getOrders();
+    if (!local.length) return;
+
+    let synced = 0;
+    for (const order of local) {
+        const id = String(order.id);
+        try {
+            const snap = await db.collection('orders').doc(id).get();
+            if (!snap.exists) {
+                await db.collection('orders').doc(id).set(order);
+                synced++;
+                console.log('☁️ OS #' + id + ' sincronizada para Firebase');
+            }
+        } catch(e) {
+            console.warn('Sync OS #' + id + ':', e.message);
+        }
+    }
+    if (synced > 0) {
+        console.log('✅ ' + synced + ' OS(s) sincronizadas para o Firebase');
+        showToast('☁️ ' + synced + ' orçamento(s) sincronizado(s) com a nuvem.', 'success', 4000);
+    }
+}
+
 // ─── Toast ─────────────────────────────────────────────────────────────────
 function showToast(msg, type = 'info', duration = 4000) {
     let el = document.getElementById('_rsp_toast');
@@ -299,6 +326,9 @@ async function initDashboard() {
         if (el('stat-inprogress')) el('stat-inprogress').textContent = byStatus('approved');
         if (el('stat-completed'))  el('stat-completed').textContent  = byStatus('completed');
     }
+
+    // 0. Sincroniza OS locais para Firebase (recupera OS antigas não enviadas)
+    setTimeout(() => syncLocalToFirebase(), 2000);
 
     // 1. Mostra local imediatamente (resposta rápida)
     renderOrders(LS.getOrders());
