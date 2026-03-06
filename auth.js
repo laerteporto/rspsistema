@@ -19,8 +19,14 @@
             salt: 'ad81fea0890606f96a22a64d336c47a4c961befe4bc655963a04638762b06efb',
             hash: '205028b0d05d4b290c3e23d6c1225ccf4014f2d4f13dcdf23379cc7fe1ca9d41',
         },
+       joao: {
+            email: '',
+            displayName: 'Joao',
+            salt: '81f6f149c9623cd1c34ae107c228c04fdfa0a09e91e37e6ebdce96a34869b732',
+            hash: '6788689b4ca4027fc4ae23a59f45feb6eecd5c1b00c3261cca1175aefd0f53b5',
+        },
     };
-    // Senha do usuário rogerio: RSP@admin2026
+    
     // Para adicionar novos usuários: abra hash-generator.html no browser
 
     const SESSION_KEY  = 'rsp_auth_session';
