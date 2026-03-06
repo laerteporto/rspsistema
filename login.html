@@ -171,25 +171,6 @@
         }
         .card-footer strong{color:#d36e2d}
 
-        /* Usuários cadastrados (painel de recuperação) */
-        .user-list{margin:1rem 0;display:flex;flex-direction:column;gap:.5rem}
-        .user-item{
-            display:flex;align-items:center;gap:.75rem;
-            padding:.75rem 1rem;background:#faf9f7;border-radius:8px;
-            border:1px solid #e2e0da;cursor:pointer;transition:all .2s;
-        }
-        .user-item:hover{border-color:#d36e2d;background:#fff8f3}
-        .user-avatar{
-            width:36px;height:36px;border-radius:50%;
-            background:linear-gradient(135deg,#d36e2d,#a85220);
-            color:#fff;font-weight:700;font-size:.85rem;
-            display:flex;align-items:center;justify-content:center;flex-shrink:0;
-        }
-        .user-info{flex:1;text-align:left}
-        .user-info strong{display:block;font-size:.88rem;color:#1a1814}
-        .user-info small{font-size:.75rem;color:#9a958e}
-        .user-arrow{color:#d36e2d;font-size:1rem}
-
         /* Link voltar */
         .back-link{
             display:inline-flex;align-items:center;gap:.35rem;
@@ -269,18 +250,27 @@
 
         <div class="alert info" id="rec-info" style="display:flex;">
             <span>ℹ️</span>
-            <span>Selecione seu usuário para enviar as instruções de recuperação para o e-mail cadastrado.</span>
+            <span>Digite seu usuário e enviaremos as instruções para o e-mail cadastrado.</span>
         </div>
         <div class="alert success" id="rec-success">
             <span>✅</span><span id="rec-success-text"></span>
         </div>
         <div class="alert error" id="rec-error">
-            <span>⚠️</span><span id="rec-error-text">Erro ao enviar. Tente novamente.</span>
+            <span>⚠️</span><span id="rec-error-text">Usuário não encontrado ou sem e-mail cadastrado.</span>
         </div>
 
-        <div class="user-list" id="user-list">
-            <!-- Preenchido pelo JS -->
+        <div class="field">
+            <label for="rec-username">Usuário</label>
+            <div class="input-wrap">
+                <span class="input-icon">👤</span>
+                <input type="text" id="rec-username" placeholder="Digite seu usuário"
+                    autocapitalize="none" spellcheck="false">
+            </div>
         </div>
+
+        <button class="btn-primary" onclick="sendRecovery()">
+            <span class="btn-label">📧 Enviar instruções por e-mail</span>
+        </button>
     </div>
 
     <div class="card-footer">
@@ -304,8 +294,12 @@
         if (name === 'login')    tabs[0].classList.add('active');
         if (name === 'recovery') tabs[1].classList.add('active');
 
-        // Renderiza lista de usuários ao entrar em recovery
-        if (name === 'recovery') renderUserList();
+        // Limpa alertas ao trocar de painel
+        if (name === 'recovery') {
+            hideAlert('rec-success');
+            hideAlert('rec-error');
+            document.getElementById('rec-info').classList.add('show');
+        }
     }
 
     // ── Toggle senha ────────────────────────────────────────────────────────
@@ -379,23 +373,7 @@
         }
     }
 
-    // ── Lista de usuários para recuperação ───────────────────────────────────
-    function renderUserList() {
-        const list = document.getElementById('user-list');
-        if (!list || !window.RSPAuth) return;
-        const users = window.RSPAuth.getUsers();
-        list.innerHTML = users.map(u => `
-            <div class="user-item" onclick="sendRecovery('${u.username}')">
-                <div class="user-avatar">${u.displayName.charAt(0).toUpperCase()}</div>
-                <div class="user-info">
-                    <strong>${u.displayName} <span style="color:#9a958e;font-weight:400;">(${u.username})</span></strong>
-                    <small>📧 ${maskEmail(u.email)}</small>
-                </div>
-                <span class="user-arrow">→</span>
-            </div>`).join('');
-    }
-
-    // Mascara parte do email por privacidade: laertep@gmail.com → la****p@gmail.com
+    // Mascara e-mail: laertep@gmail.com → la****p@gmail.com
     function maskEmail(email) {
         if (!email) return 'não cadastrado';
         const [user, domain] = email.split('@');
@@ -404,22 +382,35 @@
         return masked + '@' + domain;
     }
 
-    // ── Recuperação ──────────────────────────────────────────────────────────
-    function sendRecovery(username) {
+    // ── Recuperação de senha ─────────────────────────────────────────────────
+    function sendRecovery() {
         hideAlert('rec-error');
         hideAlert('rec-success');
+        hideAlert('rec-info');
+
+        const username = (document.getElementById('rec-username').value || '').trim();
+        if (!username) {
+            showAlert('rec-error', 'rec-error-text', 'Digite seu usuário para continuar.');
+            return;
+        }
 
         const ok = window.RSPAuth.sendPasswordRecovery(username);
         if (ok) {
-            const users = window.RSPAuth.getUsers();
-            const u = users.find(x => x.username === username);
-            const emailMasked = u ? maskEmail(u.email) : 'seu e-mail';
+            const users  = window.RSPAuth.getUsers();
+            const u      = users.find(x => x.username === username.toLowerCase());
+            const masked = u ? maskEmail(u.email) : 'seu e-mail cadastrado';
             showAlert('rec-success', 'rec-success-text',
-                `E-mail de recuperação aberto para ${emailMasked}. Verifique seu cliente de e-mail.`);
+                'Instruções enviadas para ' + masked + '. Verifique seu e-mail.');
+            document.getElementById('rec-username').value = '';
         } else {
-            showAlert('rec-error', 'rec-error-text', 'Não foi possível enviar. E-mail não cadastrado.');
+            showAlert('rec-error', 'rec-error-text', 'Usuário não encontrado ou sem e-mail cadastrado.');
         }
     }
+
+    // Enter no campo de usuário de recuperação
+    document.getElementById('rec-username').addEventListener('keydown', e => {
+        if (e.key === 'Enter') sendRecovery();
+    });
 </script>
 </body>
 </html>
