@@ -229,17 +229,68 @@ async function initDashboard() {
         }
         sorted.forEach(o => {
             const tr = document.createElement('tr');
+            tr.dataset.osId = o.id;
             tr.innerHTML = `
                 <td><strong>#${o.id}</strong></td>
                 <td>${escHtml(o.clientName || '-')}</td>
                 <td><span style="background:var(--primary-light);color:var(--primary-dark);padding:.2rem .6rem;border-radius:4px;font-size:.8rem;font-weight:600;">${escHtml(o.category || '-')}</span></td>
                 <td style="color:var(--text-muted);font-size:.88rem;">${new Date(o.date).toLocaleDateString('pt-BR')}</td>
                 <td>${statusBadge(o.status)}</td>
-                <td><button class="btn btn-sm btn-outline" onclick="location.href='service_form.html?id=${o.id}'">Ver OS</button></td>`;
+                <td style="display:flex;gap:.4rem;flex-wrap:wrap;">
+                    <button class="btn btn-sm btn-outline" onclick="location.href='service_form.html?id=${o.id}'">Ver OS</button>
+                    <button class="btn btn-sm btn-outline" style="color:var(--danger);border-color:var(--danger);"
+                        onclick="deleteOS('${o.id}', this)">🗑 Excluir</button>
+                </td>`;
             tbody.appendChild(tr);
         });
         updateStats(sorted);
     }
+
+    // Exposta globalmente para uso no onclick inline
+    window.deleteOS = async function(osId, btn) {
+        const orders = LS.getOrders();
+        const os = orders.find(o => String(o.id) === String(osId));
+        if (!os) return;
+
+        const confirmMsg = `Excluir OS #${osId} de ${os.clientName || 'Cliente'} (${os.category || '-'})?\n\nEsta ação não pode ser desfeita.`;
+        if (!confirm(confirmMsg)) return;
+
+        btn.disabled = true;
+        btn.textContent = '⏳';
+
+        // Remove do localStorage
+        const updated = orders.filter(o => String(o.id) !== String(osId));
+        LS.saveOrders(updated);
+
+        // Remove do Firebase em background
+        if (db) {
+            db.collection('orders').doc(String(osId)).delete()
+                .then(() => console.log('☁️ OS #' + osId + ' removida do Firebase'))
+                .catch(e => console.warn('Firebase delete OS:', e.message));
+        }
+
+        // Remove a linha da tabela com animação suave
+        const row = tbody.querySelector(`tr[data-os-id="${osId}"]`);
+        if (row) {
+            row.style.transition = 'opacity .3s, transform .3s';
+            row.style.opacity = '0';
+            row.style.transform = 'translateX(20px)';
+            setTimeout(() => {
+                row.remove();
+                updateStats(LS.getOrders());
+                // Mostra mensagem de vazio se não sobrar nenhuma
+                if (!tbody.querySelector('tr[data-os-id]')) {
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:3rem;color:var(--text-muted);">
+                        <div style="font-size:2rem;margin-bottom:.5rem;">📋</div>
+                        Nenhuma OS cadastrada. <a href="service_form.html" style="color:var(--primary);font-weight:600;">Criar primeira OS</a>
+                    </td></tr>`;
+                    updateStats([]);
+                }
+            }, 320);
+        }
+
+        showToast('🗑 OS #' + osId + ' excluída.', 'info');
+    };
 
     function updateStats(orders) {
         const byStatus = (s) => orders.filter(o => o.status === s).length;
