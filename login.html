@@ -5,259 +5,227 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login | RSP Serviços</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
     <style>
-        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
-
-        body {
-            font-family: 'DM Sans', system-ui, sans-serif;
-            background: #ededea;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 1rem;
-            -webkit-font-smoothing: antialiased;
+        *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+        body{
+            font-family:'DM Sans',system-ui,sans-serif;
+            background:#ededea;
+            min-height:100vh;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            padding:1rem;
+            -webkit-font-smoothing:antialiased;
         }
 
-        /* ── Card de login ── */
-        .login-card {
-            background: #fff;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,.12);
-            width: 100%;
-            max-width: 420px;
-            overflow: hidden;
+        .card{
+            background:#fff;
+            border-radius:20px;
+            box-shadow:0 20px 60px rgba(0,0,0,.13);
+            width:100%;
+            max-width:420px;
+            overflow:hidden;
         }
 
-        /* ── Cabeçalho laranja ── */
-        .login-header {
-            background: linear-gradient(135deg, #d36e2d 0%, #b05b22 100%);
-            padding: 2.5rem 2rem 2rem;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
+        /* Header */
+        .card-header{
+            background:linear-gradient(135deg,#d36e2d 0%,#a85220 100%);
+            padding:2.5rem 2rem 2rem;
+            text-align:center;
+            position:relative;
+            overflow:hidden;
         }
-        .login-header::before {
-            content: '';
-            position: absolute;
-            top: -40px; right: -40px;
-            width: 120px; height: 120px;
-            background: rgba(255,255,255,.1);
-            border-radius: 50%;
+        .card-header::before,.card-header::after{
+            content:'';position:absolute;border-radius:50%;
+            background:rgba(255,255,255,.08);
         }
-        .login-header::after {
-            content: '';
-            position: absolute;
-            bottom: -30px; left: -30px;
-            width: 90px; height: 90px;
-            background: rgba(255,255,255,.08);
-            border-radius: 50%;
+        .card-header::before{width:140px;height:140px;top:-50px;right:-50px}
+        .card-header::after {width:90px; height:90px; bottom:-30px;left:-30px}
+        .card-header h1{
+            font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;
+            color:#fff;text-transform:uppercase;letter-spacing:2px;
+            position:relative;z-index:1;line-height:1.15;
         }
-        .login-header h1 {
-            font-family: 'Syne', sans-serif;
-            font-size: 2rem;
-            font-weight: 800;
-            color: #fff;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            position: relative;
-            z-index: 1;
-        }
-        .login-header h1 span { opacity: .85; }
-        .login-header p {
-            color: rgba(255,255,255,.8);
-            font-size: .85rem;
-            margin-top: .4rem;
-            position: relative;
-            z-index: 1;
-        }
+        .card-header p{color:rgba(255,255,255,.8);font-size:.83rem;margin-top:.4rem;position:relative;z-index:1}
 
-        /* ── Formulário ── */
-        .login-body { padding: 2rem; }
+        /* Abas */
+        .tabs{display:flex;border-bottom:2px solid #f0ede8}
+        .tab{
+            flex:1;padding:.9rem;text-align:center;font-weight:600;font-size:.88rem;
+            cursor:pointer;color:#9a958e;border-bottom:3px solid transparent;
+            margin-bottom:-2px;transition:all .2s;background:none;border-top:none;
+            border-left:none;border-right:none;font-family:'DM Sans',sans-serif;
+        }
+        .tab.active{color:#d36e2d;border-bottom-color:#d36e2d}
+        .tab:hover:not(.active){color:#5a5650}
 
-        .login-body h2 {
-            font-family: 'Syne', sans-serif;
-            font-size: 1.2rem;
-            font-weight: 700;
-            color: #1a1814;
-            margin-bottom: 1.5rem;
-        }
+        /* Painéis */
+        .panel{display:none;padding:2rem}
+        .panel.active{display:block}
 
-        .field { margin-bottom: 1.25rem; }
-        .field label {
-            display: block;
-            font-size: .8rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: .6px;
-            color: #5a5650;
-            margin-bottom: .45rem;
-        }
+        h2{font-family:'Syne',sans-serif;font-size:1.15rem;font-weight:700;color:#1a1814;margin-bottom:1.4rem}
 
-        .input-wrap {
-            position: relative;
+        /* Campos */
+        .field{margin-bottom:1.1rem}
+        .field label{
+            display:block;font-size:.75rem;font-weight:700;
+            text-transform:uppercase;letter-spacing:.6px;color:#5a5650;margin-bottom:.4rem;
         }
-        .input-wrap .input-icon {
-            position: absolute;
-            left: .9rem;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 1rem;
-            pointer-events: none;
+        .input-wrap{position:relative}
+        .input-icon{
+            position:absolute;left:.85rem;top:50%;transform:translateY(-50%);
+            font-size:.95rem;pointer-events:none;line-height:1;
         }
-        .input-wrap input {
-            width: 100%;
-            padding: .8rem 1rem .8rem 2.6rem;
-            border: 2px solid #e2e0da;
-            border-radius: 10px;
-            font-family: 'DM Sans', sans-serif;
-            font-size: .95rem;
-            color: #1a1814;
-            background: #faf9f7;
-            transition: border-color .2s, box-shadow .2s;
-            outline: none;
+        .input-wrap input{
+            width:100%;padding:.78rem 1rem .78rem 2.5rem;
+            border:2px solid #e2e0da;border-radius:10px;
+            font-family:'DM Sans',sans-serif;font-size:.95rem;color:#1a1814;
+            background:#faf9f7;transition:border-color .2s,box-shadow .2s;outline:none;
         }
-        .input-wrap input:focus {
-            border-color: #d36e2d;
-            box-shadow: 0 0 0 3px rgba(211,110,45,.12);
-            background: #fff;
+        .input-wrap input:focus{
+            border-color:#d36e2d;
+            box-shadow:0 0 0 3px rgba(211,110,45,.12);
+            background:#fff;
         }
+        .input-wrap input.error-field{border-color:#c62828}
 
-        /* Toggle de senha */
-        .toggle-pass {
-            position: absolute;
-            right: .9rem;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 1rem;
-            color: #9a958e;
-            padding: .2rem;
-            line-height: 1;
+        /* Toggle senha */
+        .eye-btn{
+            position:absolute;right:.85rem;top:50%;transform:translateY(-50%);
+            background:none;border:none;cursor:pointer;font-size:.95rem;
+            color:#9a958e;padding:.2rem;line-height:1;
         }
-        .toggle-pass:hover { color: #d36e2d; }
+        .eye-btn:hover{color:#d36e2d}
 
-        /* ── Botão de entrar ── */
-        .btn-login {
-            width: 100%;
-            padding: 1rem;
-            background: linear-gradient(135deg, #d36e2d 0%, #b05b22 100%);
-            color: #fff;
-            border: none;
-            border-radius: 10px;
-            font-family: 'DM Sans', sans-serif;
-            font-weight: 700;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all .2s ease;
-            margin-top: .5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: .5rem;
-            letter-spacing: .3px;
+        /* Botão primário */
+        .btn-primary{
+            width:100%;padding:.95rem;
+            background:linear-gradient(135deg,#d36e2d,#a85220);
+            color:#fff;border:none;border-radius:10px;
+            font-family:'DM Sans',sans-serif;font-weight:700;font-size:.95rem;
+            cursor:pointer;transition:all .2s;
+            display:flex;align-items:center;justify-content:center;gap:.5rem;
+            margin-top:.5rem;
         }
-        .btn-login:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(211,110,45,.35);
-        }
-        .btn-login:disabled {
-            opacity: .65;
-            cursor: not-allowed;
-            transform: none;
-        }
+        .btn-primary:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 6px 20px rgba(211,110,45,.35)}
+        .btn-primary:disabled{opacity:.6;cursor:not-allowed;transform:none}
 
-        /* ── Mensagem de erro ── */
-        .error-msg {
-            display: none;
-            background: #ffebee;
-            color: #c62828;
-            border: 1px solid #ffcdd2;
-            border-radius: 8px;
-            padding: .8rem 1rem;
-            font-size: .85rem;
-            font-weight: 500;
-            margin-bottom: 1.25rem;
-            align-items: center;
-            gap: .5rem;
+        /* Botão secundário */
+        .btn-secondary{
+            width:100%;padding:.85rem;
+            background:transparent;color:#d36e2d;
+            border:2px solid #d36e2d;border-radius:10px;
+            font-family:'DM Sans',sans-serif;font-weight:600;font-size:.9rem;
+            cursor:pointer;transition:all .2s;margin-top:.5rem;
         }
-        .error-msg.show { display: flex; }
+        .btn-secondary:hover{background:#fff3e8}
 
-        /* ── Rodapé do card ── */
-        .login-footer {
-            text-align: center;
-            padding: 1rem 2rem 1.5rem;
-            font-size: .75rem;
-            color: #b0aa9e;
-            border-top: 1px solid #f0ede8;
+        /* Alerta */
+        .alert{
+            display:none;padding:.8rem 1rem;border-radius:8px;
+            font-size:.84rem;font-weight:500;margin-bottom:1.1rem;
+            align-items:flex-start;gap:.5rem;line-height:1.5;
         }
-        .login-footer span { color: #d36e2d; font-weight: 600; }
+        .alert.show{display:flex}
+        .alert.error  {background:#ffebee;color:#c62828;border:1px solid #ffcdd2}
+        .alert.success{background:#e8f5e9;color:#2e7d32;border:1px solid #c8e6c9}
+        .alert.info   {background:#fff3e0;color:#e65100;border:1px solid #ffe0b2}
 
-        /* ── Spinner ── */
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .spinner {
-            width: 18px; height: 18px;
-            border: 2px solid rgba(255,255,255,.4);
-            border-top-color: #fff;
-            border-radius: 50%;
-            animation: spin .7s linear infinite;
-            display: none;
+        /* Spinner */
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .spinner{
+            width:16px;height:16px;border:2px solid rgba(255,255,255,.35);
+            border-top-color:#fff;border-radius:50%;
+            animation:spin .7s linear infinite;display:none;flex-shrink:0;
         }
-        .btn-login.loading .spinner { display: block; }
-        .btn-login.loading .btn-text { opacity: .7; }
+        .loading .spinner{display:block}
+        .loading .btn-label{opacity:.7}
 
-        /* ── Shake animation para erro ── */
-        @keyframes shake {
-            0%,100%{ transform: translateX(0); }
-            20%    { transform: translateX(-8px); }
-            40%    { transform: translateX(8px); }
-            60%    { transform: translateX(-5px); }
-            80%    { transform: translateX(5px); }
+        /* Shake */
+        @keyframes shake{
+            0%,100%{transform:translateX(0)}
+            20%{transform:translateX(-8px)}40%{transform:translateX(8px)}
+            60%{transform:translateX(-5px)}80%{transform:translateX(5px)}
         }
-        .shake { animation: shake .4s ease; }
+        .shake{animation:shake .38s ease}
 
-        /* ── Badge de segurança ── */
-        .security-badge {
-            display: flex;
-            align-items: center;
-            gap: .4rem;
-            font-size: .72rem;
-            color: #9a958e;
-            justify-content: center;
-            margin-top: 1.25rem;
+        /* Divisor */
+        .divider{
+            display:flex;align-items:center;gap:.75rem;
+            margin:1.1rem 0;color:#b0aa9e;font-size:.78rem;
         }
-        .security-badge span {
-            width: 6px; height: 6px;
-            background: #2e7d32;
-            border-radius: 50%;
-            display: inline-block;
+        .divider::before,.divider::after{content:'';flex:1;height:1px;background:#e2e0da}
+
+        /* Badge segurança */
+        .sec-badge{
+            display:flex;align-items:center;justify-content:center;
+            gap:.4rem;font-size:.7rem;color:#b0aa9e;margin-top:1.1rem;
         }
+        .sec-dot{width:6px;height:6px;background:#2e7d32;border-radius:50%;flex-shrink:0}
+
+        /* Rodapé */
+        .card-footer{
+            text-align:center;padding:.9rem 2rem 1.25rem;
+            font-size:.73rem;color:#b0aa9e;border-top:1px solid #f0ede8;
+        }
+        .card-footer strong{color:#d36e2d}
+
+        /* Usuários cadastrados (painel de recuperação) */
+        .user-list{margin:1rem 0;display:flex;flex-direction:column;gap:.5rem}
+        .user-item{
+            display:flex;align-items:center;gap:.75rem;
+            padding:.75rem 1rem;background:#faf9f7;border-radius:8px;
+            border:1px solid #e2e0da;cursor:pointer;transition:all .2s;
+        }
+        .user-item:hover{border-color:#d36e2d;background:#fff8f3}
+        .user-avatar{
+            width:36px;height:36px;border-radius:50%;
+            background:linear-gradient(135deg,#d36e2d,#a85220);
+            color:#fff;font-weight:700;font-size:.85rem;
+            display:flex;align-items:center;justify-content:center;flex-shrink:0;
+        }
+        .user-info{flex:1;text-align:left}
+        .user-info strong{display:block;font-size:.88rem;color:#1a1814}
+        .user-info small{font-size:.75rem;color:#9a958e}
+        .user-arrow{color:#d36e2d;font-size:1rem}
+
+        /* Link voltar */
+        .back-link{
+            display:inline-flex;align-items:center;gap:.35rem;
+            font-size:.82rem;color:#9a958e;cursor:pointer;
+            background:none;border:none;font-family:'DM Sans',sans-serif;
+            padding:0;margin-bottom:1rem;
+        }
+        .back-link:hover{color:#d36e2d}
     </style>
 </head>
 <body>
 
-<div class="login-card">
+<div class="card" id="card">
 
-    <!-- Cabeçalho -->
-    <div class="login-header">
-        <h1>RSP <span>Serviços</span></h1>
+    <div class="card-header">
+        <h1>RSP<br>Serviços</h1>
         <p>Sistema de Gestão de Ordens de Serviço</p>
     </div>
 
-    <!-- Formulário -->
-    <div class="login-body">
+    <!-- Abas -->
+    <div class="tabs">
+        <button class="tab active" onclick="showPanel('login')">🔑 Entrar</button>
+        <button class="tab" onclick="showPanel('recovery')">🔐 Recuperar Senha</button>
+    </div>
+
+    <!-- ── PAINEL LOGIN ── -->
+    <div class="panel active" id="panel-login">
         <h2>Acesso ao Sistema</h2>
 
-        <!-- Erro -->
-        <div class="error-msg" id="error-msg">
-            <span>⚠️</span>
-            <span id="error-text">Usuário ou senha incorretos.</span>
+        <div class="alert error" id="login-error">
+            <span>⚠️</span><span id="login-error-text">Usuário ou senha incorretos.</span>
+        </div>
+        <div class="alert success" id="login-success">
+            <span>✅</span><span id="login-success-text"></span>
         </div>
 
-        <!-- Campo usuário -->
         <div class="field">
             <label for="username">Usuário</label>
             <div class="input-wrap">
@@ -267,119 +235,189 @@
             </div>
         </div>
 
-        <!-- Campo senha -->
         <div class="field">
             <label for="password">Senha</label>
             <div class="input-wrap">
                 <span class="input-icon">🔒</span>
                 <input type="password" id="password" placeholder="Digite sua senha"
                     autocomplete="current-password">
-                <button type="button" class="toggle-pass" id="toggle-pass"
-                    onclick="togglePassword()" title="Mostrar/ocultar senha">👁</button>
+                <button class="eye-btn" type="button" onclick="toggleEye('password','eye1')" id="eye1">👁</button>
             </div>
         </div>
 
-        <!-- Botão entrar -->
-        <button class="btn-login" id="btn-login" onclick="doLogin()">
+        <button class="btn-primary" id="btn-login" onclick="doLogin()">
             <div class="spinner"></div>
-            <span class="btn-text">🔑 Entrar</span>
+            <span class="btn-label">🔑 Entrar</span>
         </button>
 
-        <!-- Badge de segurança -->
-        <div class="security-badge">
-            <span></span>
-            Conexão protegida com PBKDF2 + SHA-256
+        <div class="divider">ou</div>
+
+        <button class="btn-secondary" onclick="showPanel('recovery')">
+            Esqueci minha senha
+        </button>
+
+        <div class="sec-badge">
+            <div class="sec-dot"></div>
+            Autenticação protegida com PBKDF2 + SHA-256
         </div>
     </div>
 
-    <!-- Rodapé -->
-    <div class="login-footer">
-        RSP Serviços &nbsp;·&nbsp; <span>Sistema interno</span> &nbsp;·&nbsp; Acesso restrito
+    <!-- ── PAINEL RECUPERAÇÃO DE SENHA ── -->
+    <div class="panel" id="panel-recovery">
+        <button class="back-link" onclick="showPanel('login')">← Voltar ao login</button>
+        <h2>Recuperar Senha</h2>
+
+        <div class="alert info" id="rec-info" style="display:flex;">
+            <span>ℹ️</span>
+            <span>Selecione seu usuário para enviar as instruções de recuperação para o e-mail cadastrado.</span>
+        </div>
+        <div class="alert success" id="rec-success">
+            <span>✅</span><span id="rec-success-text"></span>
+        </div>
+        <div class="alert error" id="rec-error">
+            <span>⚠️</span><span id="rec-error-text">Erro ao enviar. Tente novamente.</span>
+        </div>
+
+        <div class="user-list" id="user-list">
+            <!-- Preenchido pelo JS -->
+        </div>
     </div>
 
+    <div class="card-footer">
+        RSP Serviços &nbsp;·&nbsp; <strong>Sistema interno</strong> &nbsp;·&nbsp; Acesso restrito
+    </div>
 </div>
 
-<!-- auth.js cuida de tudo que envolve criptografia -->
 <script src="auth.js"></script>
 <script>
-    // Se já tem sessão válida, vai direto pro dashboard
-    if (window.RSPAuth.getSession()) {
+    // Redireciona se já estiver logado
+    if (window.RSPAuth && window.RSPAuth.getSession()) {
         window.location.replace('index.html');
     }
 
-    // Enter no campo de senha dispara o login
-    document.getElementById('password').addEventListener('keydown', e => {
-        if (e.key === 'Enter') doLogin();
-    });
+    // ── Abas ────────────────────────────────────────────────────────────────
+    function showPanel(name) {
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('panel-' + name).classList.add('active');
+        const tabs = document.querySelectorAll('.tab');
+        if (name === 'login')    tabs[0].classList.add('active');
+        if (name === 'recovery') tabs[1].classList.add('active');
+
+        // Renderiza lista de usuários ao entrar em recovery
+        if (name === 'recovery') renderUserList();
+    }
+
+    // ── Toggle senha ────────────────────────────────────────────────────────
+    function toggleEye(inputId, btnId) {
+        const inp = document.getElementById(inputId);
+        const btn = document.getElementById(btnId);
+        inp.type = inp.type === 'password' ? 'text' : 'password';
+        btn.textContent = inp.type === 'password' ? '👁' : '🙈';
+    }
+
+    // ── Alertas ─────────────────────────────────────────────────────────────
+    function showAlert(id, textId, msg) {
+        document.getElementById(id).classList.add('show');
+        if (textId) document.getElementById(textId).textContent = msg;
+    }
+    function hideAlert(id) {
+        document.getElementById(id).classList.remove('show');
+    }
+    function shakeCard() {
+        const c = document.getElementById('card');
+        c.classList.remove('shake');
+        void c.offsetWidth;
+        c.classList.add('shake');
+    }
+
+    // ── Enter nos campos ─────────────────────────────────────────────────────
     document.getElementById('username').addEventListener('keydown', e => {
         if (e.key === 'Enter') document.getElementById('password').focus();
     });
+    document.getElementById('password').addEventListener('keydown', e => {
+        if (e.key === 'Enter') doLogin();
+    });
 
-    function togglePassword() {
-        const inp = document.getElementById('password');
-        const btn = document.getElementById('toggle-pass');
-        if (inp.type === 'password') {
-            inp.type = 'text';
-            btn.textContent = '🙈';
-        } else {
-            inp.type = 'password';
-            btn.textContent = '👁';
-        }
-    }
-
-    function showError(msg) {
-        const el  = document.getElementById('error-msg');
-        const txt = document.getElementById('error-text');
-        txt.textContent = msg;
-        el.classList.add('show');
-        // Shake no card
-        const card = document.querySelector('.login-card');
-        card.classList.remove('shake');
-        void card.offsetWidth; // reflow para reiniciar animação
-        card.classList.add('shake');
-    }
-
-    function hideError() {
-        document.getElementById('error-msg').classList.remove('show');
-    }
-
+    // ── Login ────────────────────────────────────────────────────────────────
     async function doLogin() {
-        const btn      = document.getElementById('btn-login');
-        const username = document.getElementById('username').value.trim();
-        const password = document.getElementById('password').value;
+        const btn  = document.getElementById('btn-login');
+        const user = document.getElementById('username').value.trim();
+        const pass = document.getElementById('password').value;
 
-        hideError();
+        hideAlert('login-error');
+        hideAlert('login-success');
 
-        if (!username || !password) {
-            showError('Preencha o usuário e a senha.');
-            return;
+        if (!user || !pass) {
+            showAlert('login-error', 'login-error-text', 'Preencha o usuário e a senha.');
+            shakeCard(); return;
         }
 
-        // Estado de carregando
         btn.disabled = true;
         btn.classList.add('loading');
 
         try {
-            const ok = await window.RSPAuth.attemptLogin(username, password);
-
+            const ok = await window.RSPAuth.attemptLogin(user, pass);
             if (ok) {
-                window.RSPAuth.createSession(username);
-                // Redireciona para a página que tentou acessar, ou dashboard
+                window.RSPAuth.createSession(user);
+                showAlert('login-success', 'login-success-text', 'Login efetuado! Redirecionando...');
                 const redirect = sessionStorage.getItem('rsp_redirect') || 'index.html';
                 sessionStorage.removeItem('rsp_redirect');
-                window.location.replace(redirect);
+                setTimeout(() => window.location.replace(redirect), 800);
             } else {
-                showError('Usuário ou senha incorretos. Tente novamente.');
-                btn.disabled = false;
-                btn.classList.remove('loading');
+                showAlert('login-error', 'login-error-text', 'Usuário ou senha incorretos. Tente novamente.');
+                shakeCard();
                 document.getElementById('password').value = '';
                 document.getElementById('password').focus();
+                btn.disabled = false;
+                btn.classList.remove('loading');
             }
-        } catch (e) {
-            showError('Erro interno. Tente novamente.');
+        } catch(e) {
+            showAlert('login-error', 'login-error-text', 'Erro interno: ' + e.message);
             btn.disabled = false;
             btn.classList.remove('loading');
-            console.error('Login error:', e);
+        }
+    }
+
+    // ── Lista de usuários para recuperação ───────────────────────────────────
+    function renderUserList() {
+        const list = document.getElementById('user-list');
+        if (!list || !window.RSPAuth) return;
+        const users = window.RSPAuth.getUsers();
+        list.innerHTML = users.map(u => `
+            <div class="user-item" onclick="sendRecovery('${u.username}')">
+                <div class="user-avatar">${u.displayName.charAt(0).toUpperCase()}</div>
+                <div class="user-info">
+                    <strong>${u.displayName} <span style="color:#9a958e;font-weight:400;">(${u.username})</span></strong>
+                    <small>📧 ${maskEmail(u.email)}</small>
+                </div>
+                <span class="user-arrow">→</span>
+            </div>`).join('');
+    }
+
+    // Mascara parte do email por privacidade: laertep@gmail.com → la****p@gmail.com
+    function maskEmail(email) {
+        if (!email) return 'não cadastrado';
+        const [user, domain] = email.split('@');
+        if (user.length <= 2) return email;
+        const masked = user[0] + '*'.repeat(Math.max(user.length - 2, 2)) + user[user.length - 1];
+        return masked + '@' + domain;
+    }
+
+    // ── Recuperação ──────────────────────────────────────────────────────────
+    function sendRecovery(username) {
+        hideAlert('rec-error');
+        hideAlert('rec-success');
+
+        const ok = window.RSPAuth.sendPasswordRecovery(username);
+        if (ok) {
+            const users = window.RSPAuth.getUsers();
+            const u = users.find(x => x.username === username);
+            const emailMasked = u ? maskEmail(u.email) : 'seu e-mail';
+            showAlert('rec-success', 'rec-success-text',
+                `E-mail de recuperação aberto para ${emailMasked}. Verifique seu cliente de e-mail.`);
+        } else {
+            showAlert('rec-error', 'rec-error-text', 'Não foi possível enviar. E-mail não cadastrado.');
         }
     }
 </script>
