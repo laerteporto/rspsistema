@@ -111,7 +111,8 @@
     </div>
 </div>
 
-<script src="app.js"></script>
+<script src="auth.js"></script>
+ src="app.js"></script>
 <script>
     // Mostra status do link em tempo real
     function updateUrlStatus() {
@@ -158,6 +159,12 @@
         setTimeout(updateUrlStatus, 300); // aguarda app.js carregar
         const urlInput = document.getElementById('config-public-url');
         if (urlInput) urlInput.addEventListener('input', updateUrlStatus);
+    });
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.RSPAuth) window.RSPAuth.injectLogoutButton();
     });
 </script>
 </body>

@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Relatórios | RSP Dashboard</title>
     <link rel="stylesheet" href="styles.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="auth.js"></script>
+ src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
 
@@ -83,6 +84,12 @@
 <script>
     const pdfDate = document.getElementById('pdf-date');
     if (pdfDate) pdfDate.textContent = 'Gerado em ' + new Date().toLocaleDateString('pt-BR');
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.RSPAuth) window.RSPAuth.injectLogoutButton();
+    });
 </script>
 </body>
 </html>

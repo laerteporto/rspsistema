@@ -68,13 +68,20 @@
     </div>
 </div>
 
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="auth.js"></script>
+ src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="app.js"></script>
 <script>
     // Data no header
     const dd = document.getElementById('dash-date');
     if (dd) dd.textContent = new Date().toLocaleDateString('pt-BR', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.RSPAuth) window.RSPAuth.injectLogoutButton();
+    });
 </script>
 </body>
 </html>

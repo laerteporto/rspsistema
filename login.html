@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | RSP Serviços</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+        body {
+            font-family: 'DM Sans', system-ui, sans-serif;
+            background: #ededea;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ── Card de login ── */
+        .login-card {
+            background: #fff;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,.12);
+            width: 100%;
+            max-width: 420px;
+            overflow: hidden;
+        }
+
+        /* ── Cabeçalho laranja ── */
+        .login-header {
+            background: linear-gradient(135deg, #d36e2d 0%, #b05b22 100%);
+            padding: 2.5rem 2rem 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .login-header::before {
+            content: '';
+            position: absolute;
+            top: -40px; right: -40px;
+            width: 120px; height: 120px;
+            background: rgba(255,255,255,.1);
+            border-radius: 50%;
+        }
+        .login-header::after {
+            content: '';
+            position: absolute;
+            bottom: -30px; left: -30px;
+            width: 90px; height: 90px;
+            background: rgba(255,255,255,.08);
+            border-radius: 50%;
+        }
+        .login-header h1 {
+            font-family: 'Syne', sans-serif;
+            font-size: 2rem;
+            font-weight: 800;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            position: relative;
+            z-index: 1;
+        }
+        .login-header h1 span { opacity: .85; }
+        .login-header p {
+            color: rgba(255,255,255,.8);
+            font-size: .85rem;
+            margin-top: .4rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ── Formulário ── */
+        .login-body { padding: 2rem; }
+
+        .login-body h2 {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #1a1814;
+            margin-bottom: 1.5rem;
+        }
+
+        .field { margin-bottom: 1.25rem; }
+        .field label {
+            display: block;
+            font-size: .8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .6px;
+            color: #5a5650;
+            margin-bottom: .45rem;
+        }
+
+        .input-wrap {
+            position: relative;
+        }
+        .input-wrap .input-icon {
+            position: absolute;
+            left: .9rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1rem;
+            pointer-events: none;
+        }
+        .input-wrap input {
+            width: 100%;
+            padding: .8rem 1rem .8rem 2.6rem;
+            border: 2px solid #e2e0da;
+            border-radius: 10px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: .95rem;
+            color: #1a1814;
+            background: #faf9f7;
+            transition: border-color .2s, box-shadow .2s;
+            outline: none;
+        }
+        .input-wrap input:focus {
+            border-color: #d36e2d;
+            box-shadow: 0 0 0 3px rgba(211,110,45,.12);
+            background: #fff;
+        }
+
+        /* Toggle de senha */
+        .toggle-pass {
+            position: absolute;
+            right: .9rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            color: #9a958e;
+            padding: .2rem;
+            line-height: 1;
+        }
+        .toggle-pass:hover { color: #d36e2d; }
+
+        /* ── Botão de entrar ── */
+        .btn-login {
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(135deg, #d36e2d 0%, #b05b22 100%);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-family: 'DM Sans', sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all .2s ease;
+            margin-top: .5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: .5rem;
+            letter-spacing: .3px;
+        }
+        .btn-login:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(211,110,45,.35);
+        }
+        .btn-login:disabled {
+            opacity: .65;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* ── Mensagem de erro ── */
+        .error-msg {
+            display: none;
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+            border-radius: 8px;
+            padding: .8rem 1rem;
+            font-size: .85rem;
+            font-weight: 500;
+            margin-bottom: 1.25rem;
+            align-items: center;
+            gap: .5rem;
+        }
+        .error-msg.show { display: flex; }
+
+        /* ── Rodapé do card ── */
+        .login-footer {
+            text-align: center;
+            padding: 1rem 2rem 1.5rem;
+            font-size: .75rem;
+            color: #b0aa9e;
+            border-top: 1px solid #f0ede8;
+        }
+        .login-footer span { color: #d36e2d; font-weight: 600; }
+
+        /* ── Spinner ── */
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner {
+            width: 18px; height: 18px;
+            border: 2px solid rgba(255,255,255,.4);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin .7s linear infinite;
+            display: none;
+        }
+        .btn-login.loading .spinner { display: block; }
+        .btn-login.loading .btn-text { opacity: .7; }
+
+        /* ── Shake animation para erro ── */
+        @keyframes shake {
+            0%,100%{ transform: translateX(0); }
+            20%    { transform: translateX(-8px); }
+            40%    { transform: translateX(8px); }
+            60%    { transform: translateX(-5px); }
+            80%    { transform: translateX(5px); }
+        }
+        .shake { animation: shake .4s ease; }
+
+        /* ── Badge de segurança ── */
+        .security-badge {
+            display: flex;
+            align-items: center;
+            gap: .4rem;
+            font-size: .72rem;
+            color: #9a958e;
+            justify-content: center;
+            margin-top: 1.25rem;
+        }
+        .security-badge span {
+            width: 6px; height: 6px;
+            background: #2e7d32;
+            border-radius: 50%;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+
+<div class="login-card">
+
+    <!-- Cabeçalho -->
+    <div class="login-header">
+        <h1>RSP <span>Serviços</span></h1>
+        <p>Sistema de Gestão de Ordens de Serviço</p>
+    </div>
+
+    <!-- Formulário -->
+    <div class="login-body">
+        <h2>Acesso ao Sistema</h2>
+
+        <!-- Erro -->
+        <div class="error-msg" id="error-msg">
+            <span>⚠️</span>
+            <span id="error-text">Usuário ou senha incorretos.</span>
+        </div>
+
+        <!-- Campo usuário -->
+        <div class="field">
+            <label for="username">Usuário</label>
+            <div class="input-wrap">
+                <span class="input-icon">👤</span>
+                <input type="text" id="username" placeholder="Digite seu usuário"
+                    autocomplete="username" autocapitalize="none" spellcheck="false">
+            </div>
+        </div>
+
+        <!-- Campo senha -->
+        <div class="field">
+            <label for="password">Senha</label>
+            <div class="input-wrap">
+                <span class="input-icon">🔒</span>
+                <input type="password" id="password" placeholder="Digite sua senha"
+                    autocomplete="current-password">
+                <button type="button" class="toggle-pass" id="toggle-pass"
+                    onclick="togglePassword()" title="Mostrar/ocultar senha">👁</button>
+            </div>
+        </div>
+
+        <!-- Botão entrar -->
+        <button class="btn-login" id="btn-login" onclick="doLogin()">
+            <div class="spinner"></div>
+            <span class="btn-text">🔑 Entrar</span>
+        </button>
+
+        <!-- Badge de segurança -->
+        <div class="security-badge">
+            <span></span>
+            Conexão protegida com PBKDF2 + SHA-256
+        </div>
+    </div>
+
+    <!-- Rodapé -->
+    <div class="login-footer">
+        RSP Serviços &nbsp;·&nbsp; <span>Sistema interno</span> &nbsp;·&nbsp; Acesso restrito
+    </div>
+
+</div>
+
+<!-- auth.js cuida de tudo que envolve criptografia -->
+<script src="auth.js"></script>
+<script>
+    // Se já tem sessão válida, vai direto pro dashboard
+    if (window.RSPAuth.getSession()) {
+        window.location.replace('index.html');
+    }
+
+    // Enter no campo de senha dispara o login
+    document.getElementById('password').addEventListener('keydown', e => {
+        if (e.key === 'Enter') doLogin();
+    });
+    document.getElementById('username').addEventListener('keydown', e => {
+        if (e.key === 'Enter') document.getElementById('password').focus();
+    });
+
+    function togglePassword() {
+        const inp = document.getElementById('password');
+        const btn = document.getElementById('toggle-pass');
+        if (inp.type === 'password') {
+            inp.type = 'text';
+            btn.textContent = '🙈';
+        } else {
+            inp.type = 'password';
+            btn.textContent = '👁';
+        }
+    }
+
+    function showError(msg) {
+        const el  = document.getElementById('error-msg');
+        const txt = document.getElementById('error-text');
+        txt.textContent = msg;
+        el.classList.add('show');
+        // Shake no card
+        const card = document.querySelector('.login-card');
+        card.classList.remove('shake');
+        void card.offsetWidth; // reflow para reiniciar animação
+        card.classList.add('shake');
+    }
+
+    function hideError() {
+        document.getElementById('error-msg').classList.remove('show');
+    }
+
+    async function doLogin() {
+        const btn      = document.getElementById('btn-login');
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+
+        hideError();
+
+        if (!username || !password) {
+            showError('Preencha o usuário e a senha.');
+            return;
+        }
+
+        // Estado de carregando
+        btn.disabled = true;
+        btn.classList.add('loading');
+
+        try {
+            const ok = await window.RSPAuth.attemptLogin(username, password);
+
+            if (ok) {
+                window.RSPAuth.createSession(username);
+                // Redireciona para a página que tentou acessar, ou dashboard
+                const redirect = sessionStorage.getItem('rsp_redirect') || 'index.html';
+                sessionStorage.removeItem('rsp_redirect');
+                window.location.replace(redirect);
+            } else {
+                showError('Usuário ou senha incorretos. Tente novamente.');
+                btn.disabled = false;
+                btn.classList.remove('loading');
+                document.getElementById('password').value = '';
+                document.getElementById('password').focus();
+            }
+        } catch (e) {
+            showError('Erro interno. Tente novamente.');
+            btn.disabled = false;
+            btn.classList.remove('loading');
+            console.error('Login error:', e);
+        }
+    }
+</script>
+</body>
+</html>
