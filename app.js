@@ -75,23 +75,29 @@ const LS = {
 };
 
 // ─── Persist Order: localStorage imediato + Firebase background ────────────
-function persistOrder(orderData) {
+async function persistOrder(orderData) {
     const id = String(orderData.id);
 
-    // Salva LOCAL — síncrono, confiável, imediato
+    // 1. Salva LOCAL imediato
     const orders = LS.getOrders();
     const idx = orders.findIndex(o => String(o.id) === id);
-    if (idx >= 0) orders[idx] = orderData;
-    else orders.push(orderData);
+    if (idx >= 0) orders[idx] = orderData; else orders.push(orderData);
     LS.saveOrders(orders);
     console.log('💾 OS #' + id + ' salva local');
 
-    // Firebase em background — não bloqueia nada
+    // 2. Firebase — aguarda confirmação para garantir que o cliente acesse
     if (db) {
-        db.collection('orders').doc(id).set(orderData)
-            .then(() => console.log('☁️ OS #' + id + ' sincronizada Firebase'))
-            .catch(e => console.warn('⚠️ Firebase OS:', e.message));
+        try {
+            await db.collection('orders').doc(id).set(orderData);
+            console.log('☁️ OS #' + id + ' confirmada no Firebase');
+            return true;
+        } catch(e) {
+            console.error('❌ Firebase OS FALHOU:', e.code, e.message);
+            showToast('⚠️ Salvo localmente. Firebase indisponível: ' + e.message, 'error', 8000);
+            return false;
+        }
     }
+    return true;
 }
 
 // ─── Persist Client: localStorage imediato + Firebase background ───────────
@@ -183,7 +189,7 @@ function statusBadge(status) {
         pending:           { label: '⏸ Pendente',           cls: 'badge-pending'   },
         awaiting_approval: { label: '⏳ Aguardando Cliente', cls: 'badge-pending'   },
         approved:          { label: '✅ Aprovado',           cls: 'badge-approved'  },
-        rejected:          { label: '❌ Não Aprovado',       cls: 'badge-rejected'  },
+        rejected:          { label: '❌ Recusado',           cls: 'badge-rejected'  },
         completed:         { label: '🏁 Concluído',          cls: 'badge-completed' },
     };
     const s = map[status] || { label: 'Pendente', cls: 'badge-pending' };
@@ -243,11 +249,31 @@ async function initDashboard() {
         if (el('stat-completed'))  el('stat-completed').textContent  = byStatus('completed');
     }
 
-    // Mostra local imediatamente
+    // 1. Mostra local imediatamente (resposta rápida)
     renderOrders(LS.getOrders());
 
-    // Merge Firebase sem sobrescrever local
-    loadAllOrders().then(renderOrders);
+    // 2. Busca Firebase e atualiza — Firebase é fonte de verdade para STATUS
+    //    (o cliente aprova/recusa pelo Netlify, não pelo computador do técnico)
+    if (db) {
+        db.collection('orders').get()
+            .then(snap => {
+                if (snap.empty) return;
+                // Reconstrói lista com dados do Firebase (status atualizado pelo cliente)
+                const remote = snap.docs.map(d => ({ ...d.data(), _fbDocId: d.id }));
+                // Merge: Firebase sobrescreve local (status é atualizado pelo cliente via Netlify)
+                const local = LS.getOrders();
+                const map = {};
+                local.forEach(o  => { map[String(o.id)] = o; });
+                remote.forEach(o => { map[String(o.id)] = { ...map[String(o.id)], ...o }; }); // remote sobrescreve status
+                const merged = Object.values(map);
+                LS.saveOrders(merged);
+                renderOrders(merged);
+            })
+            .catch(e => {
+                console.warn('Dashboard Firebase sync:', e.message);
+                // Se falhar, usa local mesmo
+            });
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -395,7 +421,7 @@ async function initServiceForm() {
 
     // SALVAR RASCUNHO
     if (saveBtn) {
-        saveBtn.addEventListener('click', () => {
+        saveBtn.addEventListener('click', async () => {
             if (isSaving) return;
             const phone    = document.getElementById('client-phone').value.trim();
             const category = document.getElementById('service-category').value;
@@ -406,16 +432,19 @@ async function initServiceForm() {
             isSaving = true;
             saveBtn.disabled = true;
             saveBtn.textContent = '⏳ Salvando...';
-
-            persistOrder(buildOrder(currentOSId, 'pending')); // síncrono no LS
-            showToast(`✅ OS #${currentOSId} salva!`, 'success');
-            setTimeout(() => location.href = 'index.html', 1200);
+            const saved = await persistOrder(buildOrder(currentOSId, 'pending'));
+            if (saved) {
+                showToast('✅ OS #' + currentOSId + ' salva!', 'success');
+            } else {
+                showToast('⚠️ OS salva localmente. Verifique as regras do Firebase.', 'error', 6000);
+            }
+            setTimeout(() => location.href = 'index.html', 1400);
         });
     }
 
     // ENVIAR WHATSAPP
     if (sendWABtn) {
-        sendWABtn.addEventListener('click', (e) => {
+        sendWABtn.addEventListener('click', async (e) => {
             e.preventDefault();
             if (isSaving) return;
             const phone    = document.getElementById('client-phone').value.trim();
@@ -431,9 +460,19 @@ async function initServiceForm() {
             sendWABtn.disabled = true;
             sendWABtn.textContent = '⏳ Preparando...';
 
-            // Salva OS e cliente no LS (síncrono)
-            persistOrder(buildOrder(currentOSId, 'awaiting_approval'));
+            // Salva OS no Firebase (aguarda confirmação)
+            sendWABtn.textContent = '⏳ Salvando OS...';
+            const saved = await persistOrder(buildOrder(currentOSId, 'awaiting_approval'));
             persistClient({ name: name || 'Cliente', phone, address: '', email: '' });
+
+            if (!saved) {
+                // Firebase falhou — não envia WhatsApp pois o cliente não conseguirá ver
+                sendWABtn.disabled = false;
+                sendWABtn.textContent = 'Enviar Orçamento pelo WhatsApp';
+                isSaving = false;
+                showToast('❌ O orçamento não foi salvo no Firebase. Verifique as regras em: console.firebase.google.com → Firestore → Regras', 'error', 10000);
+                return;
+            }
 
             const cleanPhone = phone.replace(/\D/g, '');
             const settings   = LS.getSettings();

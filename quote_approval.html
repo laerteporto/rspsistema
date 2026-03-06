@@ -293,31 +293,71 @@ async function loadAndRender() {
 
     let order = null;
 
-    // Tenta Firebase primeiro
+    // Tenta Firebase
     if (db) {
         try {
             const snap = await db.collection('orders').doc(String(orderId)).get();
-            if (snap.exists) order = snap.data();
-        } catch(e){ console.warn('Firebase load:', e.message); }
+            if (snap.exists) {
+                order = snap.data();
+                console.log('✅ OS carregada do Firebase:', order);
+            } else {
+                console.warn('⚠️ Documento não existe no Firebase para id:', orderId);
+            }
+        } catch(e) {
+            console.error('❌ Firebase erro:', e.code, e.message);
+            if (e.code === 'permission-denied') {
+                card.innerHTML = `
+                <div class="loading-state">
+                    <span class="icon">🔒</span>
+                    <strong>Acesso bloqueado pelo Firebase</strong>
+                </div>
+                <div style="margin-top:1rem;padding:1.25rem;background:#ffebee;border-radius:10px;border-left:4px solid #c62828;font-size:.84rem;line-height:1.8;">
+                    <strong>As regras do Firestore estão bloqueando o acesso.</strong><br><br>
+                    O técnico precisa acessar o Firebase Console e liberar as regras:<br><br>
+                    1. Acesse <a href="https://console.firebase.google.com/project/rpssystem/firestore/rules" target="_blank" style="color:#c62828;font-weight:600;">Firestore → Regras</a><br>
+                    2. Substitua por:
+                    <pre style="background:#fde8e8;padding:.75rem;border-radius:6px;margin:.5rem 0;font-size:.78rem;overflow-x:auto;">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}</pre>
+                    3. Clique em <strong>Publicar</strong> e recarregue esta página.
+                </div>`;
+                return;
+            }
+        }
     }
 
     if (!order) {
-        card.innerHTML = `<div class="loading-state">
+        card.innerHTML = `
+        <div class="loading-state">
             <span class="icon">🔍</span>
-            <strong>Orçamento não encontrado.</strong><br>
-            <small style="margin-top:.5rem;display:block;">
-                Se você é o técnico, verifique se o sistema está hospedado online.<br>
-                <a href="#instrucoes" style="color:#d36e2d;font-weight:600;" onclick="showInstructions()">Ver instruções de hospedagem</a>
-            </small>
+            <strong>Orçamento não encontrado</strong>
+            <p style="margin-top:.75rem;font-size:.88rem;line-height:1.6;">
+                O ID <strong>#${orderId}</strong> não foi localizado no banco de dados.
+            </p>
         </div>
-        <div id="instrucoes" style="display:none;margin-top:1.5rem;padding:1.25rem;background:#fff3e0;border-radius:10px;border-left:4px solid #d36e2d;font-size:.85rem;line-height:1.8;">
-            <strong>⚠️ Sistema rodando localmente</strong><br>
-            O link <code>file://</code> não funciona para clientes externos.<br><br>
-            <strong>Soluções gratuitas para hospedar:</strong><br>
-            • <a href="https://firebase.google.com/docs/hosting" target="_blank" style="color:#d36e2d;">Firebase Hosting</a><br>
-            • <a href="https://pages.github.com" target="_blank" style="color:#d36e2d;">GitHub Pages</a><br>
-            • <a href="https://netlify.com" target="_blank" style="color:#d36e2d;">Netlify</a><br><br>
-            Após hospedar, configure a URL em <strong>Configurações → URL Pública do Sistema</strong>.
+        <div style="margin-top:1rem;padding:1.25rem;background:#fff3e0;border-radius:10px;border-left:4px solid #d36e2d;font-size:.84rem;line-height:1.8;">
+            <strong>⚠️ Por que isso acontece?</strong><br><br>
+            O orçamento estava salvo <strong>apenas no computador do técnico</strong>
+            (localStorage) e não foi gravado no banco de dados online (Firebase).<br><br>
+            <strong>Causa mais comum:</strong> As regras do Firebase Firestore estão bloqueadas.<br><br>
+            <strong>📋 Solução — o técnico deve:</strong><br>
+            1. Acessar <a href="https://console.firebase.google.com/project/rpssystem/firestore/rules" target="_blank" style="color:#d36e2d;font-weight:600;">console.firebase.google.com → Firestore → Regras</a><br>
+            2. Substituir as regras por:<br>
+            <pre style="background:#fde0c8;padding:.75rem;border-radius:6px;margin:.5rem 0;font-size:.78rem;overflow-x:auto;">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}</pre>
+            3. Clicar em <strong>Publicar</strong><br>
+            4. Criar a OS novamente e reenviar pelo WhatsApp
         </div>`;
         return;
     }
@@ -416,30 +456,45 @@ window.responder = async function(newStatus) {
 
     let saved = false;
 
-    // Firebase
+    // 1. Atualiza Firebase
     if (db) {
         try {
             await db.collection('orders').doc(String(orderId)).update({ status: newStatus });
             saved = true;
-            console.log('✅ Status atualizado no Firebase');
-        } catch(e){ console.warn('Firebase update:', e.message); }
+            console.log('✅ Status atualizado no Firebase:', newStatus);
+        } catch(e) {
+            console.warn('Firebase update falhou:', e.code, e.message);
+        }
     }
 
     if (!saved) {
-        // Fallback: avisa que não salvou mas redireciona mesmo assim
-        toast('⚠️ Não foi possível registrar online. Informe o técnico.', 'error', 6000);
+        toast('⚠️ Não foi possível registrar. Tente novamente.', 'error', 6000);
         if (btnApp) { btnApp.disabled = false; btnApp.textContent = '✅ Aprovar Orçamento'; }
         if (btnRej) { btnRej.disabled = false; btnRej.textContent = '❌ Recusar Orçamento'; }
         return;
     }
 
-    toast(
-        newStatus === 'approved' ? '✅ Orçamento aprovado! Obrigado.' : '❌ Orçamento recusado. Informamos o técnico.',
-        newStatus === 'approved' ? 'success' : 'error',
-        5000
-    );
+    // 2. Atualiza localStorage do técnico (se estiver no mesmo dispositivo)
+    // Isso garante que o dashboard reflita imediatamente mesmo sem reload do Firebase
+    try {
+        const stored = JSON.parse(localStorage.getItem('rsp_orders') || '[]');
+        const idx = stored.findIndex(o => String(o.id) === String(orderId));
+        if (idx >= 0) {
+            stored[idx].status = newStatus;
+            localStorage.setItem('rsp_orders', JSON.stringify(stored));
+            console.log('💾 localStorage atualizado com status:', newStatus);
+        }
+    } catch(e) {
+        console.warn('localStorage update:', e.message);
+    }
 
-    setTimeout(() => window.location.reload(), 1800);
+    const msg = newStatus === 'approved'
+        ? '✅ Orçamento aprovado! Obrigado, em breve entraremos em contato.'
+        : '❌ Orçamento recusado. A equipe RSP foi notificada.';
+    const tipo = newStatus === 'approved' ? 'success' : 'error';
+    toast(msg, tipo, 5000);
+
+    setTimeout(() => window.location.reload(), 2000);
 };
 
 window.showInstructions = function() {
