@@ -6,7 +6,7 @@
     <title>Relatórios | RSP Dashboard</title>
     <link rel="stylesheet" href="styles.css">
     <script src="auth.js"></script>
- src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
 
@@ -26,7 +26,7 @@
 <div class="container" id="reports-container">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.75rem;flex-wrap:wrap;gap:1rem;">
         <h2>Relatórios de Desempenho</h2>
-        <button class="btn btn-primary" onclick="exportReportToPDF()">📄 Exportar PDF</button>
+        <button class="btn btn-primary" id="btn-export-pdf" onclick="exportReportToPDF()">📄 Exportar PDF</button>
     </div>
 
     <div id="pdf-content">

@@ -721,17 +721,52 @@ async function initReports() {
     loadAllOrders().then(render);
 }
 
-window.exportReportToPDF = function () {
+window.exportReportToPDF = async function () {
+    // Verifica se html2pdf foi carregado
+    if (typeof html2pdf === 'undefined') {
+        showToast('❌ Biblioteca de PDF não carregou. Verifique sua conexão e tente novamente.', 'error', 5000);
+        return;
+    }
+
+    const btn = document.getElementById('btn-export-pdf');
     const el  = document.getElementById('pdf-content');
     const hdr = document.getElementById('pdf-header');
+    const navbar = document.querySelector('.navbar');
+
+    if (!el) { showToast('❌ Conteúdo não encontrado.', 'error'); return; }
+
+    // Feedback no botão
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Gerando PDF...'; }
+
+    // Exibe cabeçalho e esconde navbar no PDF
     if (hdr) hdr.style.display = 'block';
-    html2pdf().set({
-        margin: 0.5,
-        filename: `Relatorio_RSP_${new Date().toISOString().split('T')[0]}.pdf`,
-        image: { type:'jpeg', quality:0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit:'in', format:'letter', orientation:'portrait' }
-    }).from(el).save().then(() => { if (hdr) hdr.style.display = 'none'; });
+    if (navbar) navbar.style.display = 'none';
+
+    const settings = LS.getSettings();
+    const company  = document.getElementById('pdf-header')?.querySelector('h1');
+    if (company) company.textContent = settings.companyName || 'RSP PRESTAÇÃO DE SERVIÇOS';
+
+    const filename = 'Relatorio_RSP_' + new Date().toISOString().split('T')[0] + '.pdf';
+
+    try {
+        await html2pdf().set({
+            margin:      [0.5, 0.5, 0.5, 0.5],
+            filename:    filename,
+            image:       { type: 'jpeg', quality: 0.97 },
+            html2canvas: { scale: 2, useCORS: true, logging: false },
+            jsPDF:       { unit: 'in', format: 'a4', orientation: 'portrait' }
+        }).from(el).save();
+
+        showToast('✅ PDF exportado com sucesso!', 'success');
+    } catch(e) {
+        console.error('PDF error:', e);
+        showToast('❌ Erro ao gerar PDF: ' + e.message, 'error', 6000);
+    } finally {
+        // Restaura estado da página
+        if (hdr)    hdr.style.display    = 'none';
+        if (navbar) navbar.style.display = '';
+        if (btn) { btn.disabled = false; btn.textContent = '📄 Exportar PDF'; }
+    }
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
