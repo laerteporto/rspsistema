@@ -292,12 +292,12 @@ async function initDashboard() {
             const tr = document.createElement('tr');
             tr.dataset.osId = o.id;
             tr.innerHTML = `
-                <td><strong>#${o.id}</strong></td>
-                <td>${escHtml(o.clientName || '-')}</td>
-                <td><span style="background:var(--primary-light);color:var(--primary-dark);padding:.2rem .6rem;border-radius:4px;font-size:.8rem;font-weight:600;">${escHtml(o.category || '-')}</span></td>
-                <td style="color:var(--text-muted);font-size:.88rem;">${new Date(o.date).toLocaleDateString('pt-BR')}</td>
-                <td>${statusBadge(o.status)}</td>
-                <td style="display:flex;gap:.4rem;flex-wrap:wrap;">
+                <td data-label="OS #"><strong>#${o.id}</strong></td>
+                <td data-label="Cliente">${escHtml(o.clientName || '-')}</td>
+                <td data-label="Categoria"><span style="background:var(--primary-light);color:var(--primary-dark);padding:.2rem .6rem;border-radius:4px;font-size:.8rem;font-weight:600;">${escHtml(o.category || '-')}</span></td>
+                <td data-label="Data" style="color:var(--text-muted);font-size:.88rem;">${new Date(o.date).toLocaleDateString('pt-BR')}</td>
+                <td data-label="Status">${statusBadge(o.status)}</td>
+                <td>
                     <button class="btn btn-sm btn-outline" onclick="location.href='service_form.html?id=${o.id}'">Ver OS</button>
                     <button class="btn btn-sm btn-outline" style="color:var(--danger);border-color:var(--danger);"
                         onclick="deleteOS('${o.id}', this)">🗑 Excluir</button>
@@ -697,10 +697,10 @@ async function initClientsPage() {
         sorted.forEach((c, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><strong>${escHtml(c.name)}</strong></td>
-                <td><a href="https://wa.me/55${(c.phone||'').replace(/\D/g,'')}" target="_blank"
+                <td data-label="Nome"><strong>${escHtml(c.name)}</strong></td>
+                <td data-label="WhatsApp"><a href="https://wa.me/55${(c.phone||'').replace(/\D/g,'')}" target="_blank"
                     style="color:var(--whatsapp);text-decoration:none;font-weight:500;">📱 ${escHtml(c.phone)}</a></td>
-                <td style="color:var(--text-muted);font-size:.88rem;">${escHtml(c.address || '-')}</td>
+                <td data-label="Endereço" style="color:var(--text-muted);font-size:.88rem;">${escHtml(c.address || '-')}</td>
                 <td style="color:var(--text-muted);font-size:.88rem;">${escHtml(c.email   || '-')}</td>
                 <td><button class="btn btn-sm btn-outline" style="color:var(--danger);border-color:var(--danger);"
                     onclick="deleteClientByIndex(${i})">Excluir</button></td>`;
