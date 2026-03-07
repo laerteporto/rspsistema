@@ -986,49 +986,205 @@ async function initReports() {
 }
 
 window.exportReportToPDF = async function () {
-    // Verifica se html2pdf foi carregado
     if (typeof html2pdf === 'undefined') {
-        showToast('❌ Biblioteca de PDF não carregou. Verifique sua conexão e tente novamente.', 'error', 5000);
+        showToast('❌ Biblioteca de PDF não carregou.', 'error', 5000);
         return;
     }
-
     const btn = document.getElementById('btn-export-pdf');
-    const el  = document.getElementById('pdf-content');
-    const hdr = document.getElementById('pdf-header');
-    const navbar = document.querySelector('.navbar');
-
-    if (!el) { showToast('❌ Conteúdo não encontrado.', 'error'); return; }
-
-    // Feedback no botão
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Gerando PDF...'; }
 
-    // Exibe cabeçalho e esconde navbar no PDF
-    if (hdr) hdr.style.display = 'block';
-    if (navbar) navbar.style.display = 'none';
-
-    const settings = LS.getSettings();
-    const company  = document.getElementById('pdf-header')?.querySelector('h1');
-    if (company) company.textContent = settings.companyName || 'RSP PRESTAÇÃO DE SERVIÇOS';
-
-    const filename = 'Relatorio_RSP_' + new Date().toISOString().split('T')[0] + '.pdf';
-
     try {
+        const orders   = await loadAllOrders();
+        const settings = LS.getSettings();
+
+        // ── Helpers ──────────────────────────────────────────────────────────
+        function fv(v)  { return 'R$ ' + (v||0).toFixed(2).replace('.',','); }
+        function fd(d)  { return d ? new Date(d).toLocaleDateString('pt-BR') : '-'; }
+        function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+        function statusLabel(s) {
+            const m = { pending:'Pendente', awaiting_approval:'Aguardando', approved:'Aprovado', rejected:'Recusado', completed:'Concluído' };
+            return m[s] || s;
+        }
+        function statusColor(s) {
+            const m = { approved:'#2e7d32', completed:'#1565c0', rejected:'#c62828', pending:'#e65100', awaiting_approval:'#e65100' };
+            return m[s] || '#555';
+        }
+
+        // ── Cálculos ─────────────────────────────────────────────────────────
+        const revenueOrders  = orders.filter(o => o.status==='completed' || o.status==='approved');
+        const approvedOrders = revenueOrders;
+        const rejectedOrders = orders.filter(o => o.status==='rejected');
+        const pendOrders     = orders.filter(o => o.status==='pending' || o.status==='awaiting_approval');
+        const revenue        = revenueOrders.reduce((s,o)=>s+(o.value||0),0);
+        const valorPerdido   = rejectedOrders.reduce((s,o)=>s+(o.value||0),0);
+        const approved       = approvedOrders.length;
+        const rejected       = rejectedOrders.length;
+        const total          = approved + rejected;
+        const convPct        = total ? ((approved/total)*100).toFixed(1) : '0.0';
+
+        // ── Categorias ───────────────────────────────────────────────────────
+        const cats = {};
+        orders.forEach(o => {
+            if (!o.category || o.category==='Selecione...') return;
+            if (!cats[o.category]) cats[o.category] = { total:0, approved:0, rejected:0, revenue:0, perdido:0 };
+            cats[o.category].total++;
+            if (o.status==='approved'||o.status==='completed') { cats[o.category].approved++; cats[o.category].revenue+=(o.value||0); }
+            if (o.status==='rejected') { cats[o.category].rejected++; cats[o.category].perdido+=(o.value||0); }
+        });
+        const catEntries = Object.entries(cats).sort((a,b)=>b[1].total-a[1].total);
+
+        // ── Linha de OS para tabelas ──────────────────────────────────────────
+        function osRow(o, rowBg) {
+            return `<tr style="background:${rowBg};">
+                <td style="padding:7px 10px;border-bottom:1px solid #eee;font-weight:700;color:#333;white-space:nowrap;">#${o.id}</td>
+                <td style="padding:7px 10px;border-bottom:1px solid #eee;">${esc(o.clientName||'Cliente')}</td>
+                <td style="padding:7px 10px;border-bottom:1px solid #eee;color:#888;font-size:.82em;">${esc(o.category||'-')}</td>
+                <td style="padding:7px 10px;border-bottom:1px solid #eee;color:#888;font-size:.82em;">${fd(o.date)}</td>
+                <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:.8em;color:${statusColor(o.status)};font-weight:700;">${statusLabel(o.status)}</td>
+                <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:#7b3e19;">${fv(o.value)}</td>
+                <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:.75em;color:#888;max-width:150px;">${esc((o.description||'').substring(0,60))}${(o.description||'').length>60?'…':''}</td>
+            </tr>`;
+        }
+
+        function osTable(list, emptyMsg) {
+            if (!list.length) return `<p style="color:#888;font-style:italic;padding:8px 0;">${emptyMsg}</p>`;
+            const rows = list.sort((a,b)=>new Date(b.date)-new Date(a.date))
+                .map((o,i)=>osRow(o, i%2===0?'#fff':'#fafaf8')).join('');
+            return `<table style="width:100%;border-collapse:collapse;font-size:.85em;">
+                <thead><tr style="background:#f5f0eb;">
+                    <th style="padding:7px 10px;text-align:left;font-size:.72em;color:#9a958e;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #e2e0da;">OS #</th>
+                    <th style="padding:7px 10px;text-align:left;font-size:.72em;color:#9a958e;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #e2e0da;">Cliente</th>
+                    <th style="padding:7px 10px;text-align:left;font-size:.72em;color:#9a958e;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #e2e0da;">Categoria</th>
+                    <th style="padding:7px 10px;text-align:left;font-size:.72em;color:#9a958e;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #e2e0da;">Data</th>
+                    <th style="padding:7px 10px;text-align:left;font-size:.72em;color:#9a958e;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #e2e0da;">Status</th>
+                    <th style="padding:7px 10px;text-align:right;font-size:.72em;color:#9a958e;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #e2e0da;">Valor</th>
+                    <th style="padding:7px 10px;text-align:left;font-size:.72em;color:#9a958e;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #e2e0da;">Descrição</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table>`;
+        }
+
+        function section(title, color, content) {
+            return `<div style="margin-bottom:28px;page-break-inside:avoid;">
+                <div style="background:${color}18;border-left:4px solid ${color};padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:10px;">
+                    <h3 style="margin:0;color:${color};font-size:1em;font-family:sans-serif;">${title}</h3>
+                </div>
+                ${content}
+            </div>`;
+        }
+
+        // ── HTML do PDF ───────────────────────────────────────────────────────
+        const html = `
+        <div style="font-family:'DM Sans',Arial,sans-serif;color:#1a1814;padding:20px;max-width:750px;margin:0 auto;">
+
+            <!-- Cabeçalho -->
+            <div style="text-align:center;padding-bottom:20px;border-bottom:3px solid #d36e2d;margin-bottom:24px;">
+                <h1 style="margin:0;font-size:1.5em;color:#d36e2d;text-transform:uppercase;letter-spacing:2px;">${esc(settings.companyName||'RSP PRESTAÇÃO DE SERVIÇOS')}</h1>
+                <p style="margin:4px 0 0;color:#7b3e19;font-weight:600;">Relatório Completo de Desempenho</p>
+                <p style="margin:4px 0 0;font-size:.82em;color:#9a958e;">Gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</p>
+            </div>
+
+            <!-- Resumo executivo -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:28px;">
+                <div style="background:#fff8f3;border:1px solid #f5e6d8;border-radius:10px;padding:14px;text-align:center;">
+                    <div style="font-size:.65em;color:#9a958e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Faturamento</div>
+                    <div style="font-size:1.1em;font-weight:800;color:#7b3e19;">${fv(revenue)}</div>
+                </div>
+                <div style="background:#f1f8f2;border:1px solid #c8e6c9;border-radius:10px;padding:14px;text-align:center;">
+                    <div style="font-size:.65em;color:#9a958e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Aprovadas</div>
+                    <div style="font-size:1.5em;font-weight:800;color:#2e7d32;">${approved}</div>
+                </div>
+                <div style="background:#fff5f5;border:1px solid #ffcdd2;border-radius:10px;padding:14px;text-align:center;">
+                    <div style="font-size:.65em;color:#9a958e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Recusadas</div>
+                    <div style="font-size:1.5em;font-weight:800;color:#c62828;">${rejected}</div>
+                </div>
+                <div style="background:#fff8e1;border:1px solid #ffe0b2;border-radius:10px;padding:14px;text-align:center;">
+                    <div style="font-size:.65em;color:#9a958e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Conversão</div>
+                    <div style="font-size:1.3em;font-weight:800;color:#d36e2d;">${convPct}%</div>
+                </div>
+            </div>
+
+            <!-- 1. Faturamento -->
+            ${section('💰 Faturamento — OS Aprovadas e Concluídas (' + approved + ' OS · ' + fv(revenue) + ')', '#2e7d32',
+                osTable(approvedOrders, 'Nenhuma OS aprovada ainda.')
+                + (approved > 0 ? `<div style="text-align:right;padding:8px 10px;background:#f1f8f2;border-radius:6px;margin-top:4px;font-weight:700;color:#2e7d32;">Total: ${fv(revenue)}</div>` : '')
+            )}
+
+            <!-- 2. Recusadas -->
+            ${section('❌ OS Recusadas (' + rejected + ' OS · Perdido: ' + fv(valorPerdido) + ')', '#c62828',
+                osTable(rejectedOrders, 'Nenhuma OS recusada. 🎉')
+                + (rejected > 0 ? `<div style="text-align:right;padding:8px 10px;background:#fff5f5;border-radius:6px;margin-top:4px;font-weight:700;color:#c62828;">Valor total perdido: ${fv(valorPerdido)}</div>` : '')
+            )}
+
+            <!-- 3. Pendentes -->
+            ${section('⏳ OS Pendentes / Aguardando Resposta (' + pendOrders.length + ')', '#e65100',
+                osTable(pendOrders, 'Nenhuma OS pendente.')
+            )}
+
+            <!-- 4. Todas as OS -->
+            ${section('📋 Todas as Ordens de Serviço (' + orders.length + ' no total)', '#1565c0',
+                osTable(orders, 'Nenhuma OS cadastrada.')
+            )}
+
+            <!-- 5. Categorias -->
+            <div style="margin-bottom:28px;page-break-inside:avoid;">
+                <div style="background:#f5f0eb;border-left:4px solid #d36e2d;padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:10px;">
+                    <h3 style="margin:0;color:#d36e2d;font-size:1em;font-family:sans-serif;">📊 Serviços por Categoria</h3>
+                </div>
+                ${catEntries.length === 0
+                    ? '<p style="color:#888;font-style:italic;">Nenhum dado.</p>'
+                    : `<table style="width:100%;border-collapse:collapse;font-size:.85em;">
+                        <thead><tr style="background:#f5f0eb;">
+                            <th style="padding:7px 10px;text-align:left;font-size:.72em;color:#9a958e;text-transform:uppercase;border-bottom:2px solid #e2e0da;">Categoria</th>
+                            <th style="padding:7px 10px;text-align:center;font-size:.72em;color:#9a958e;text-transform:uppercase;border-bottom:2px solid #e2e0da;">Total</th>
+                            <th style="padding:7px 10px;text-align:center;font-size:.72em;color:#2e7d32;text-transform:uppercase;border-bottom:2px solid #e2e0da;">Aprovadas</th>
+                            <th style="padding:7px 10px;text-align:center;font-size:.72em;color:#c62828;text-transform:uppercase;border-bottom:2px solid #e2e0da;">Recusadas</th>
+                            <th style="padding:7px 10px;text-align:right;font-size:.72em;color:#9a958e;text-transform:uppercase;border-bottom:2px solid #e2e0da;">Faturado</th>
+                            <th style="padding:7px 10px;text-align:right;font-size:.72em;color:#c62828;text-transform:uppercase;border-bottom:2px solid #e2e0da;">Perdido</th>
+                        </tr></thead>
+                        <tbody>${catEntries.map(([cat,d],i)=>`
+                            <tr style="background:${i%2===0?'#fff':'#fafaf8'};">
+                                <td style="padding:7px 10px;border-bottom:1px solid #eee;font-weight:600;">${esc(cat)}</td>
+                                <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:center;font-weight:700;">${d.total}</td>
+                                <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:center;color:#2e7d32;font-weight:700;">${d.approved}</td>
+                                <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:center;color:#c62828;font-weight:700;">${d.rejected}</td>
+                                <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:#7b3e19;">${fv(d.revenue)}</td>
+                                <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:right;color:#c62828;">${d.perdido>0?fv(d.perdido):'-'}</td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>`
+                }
+            </div>
+
+            <!-- Rodapé -->
+            <div style="border-top:2px solid #e2e0da;padding-top:14px;text-align:center;color:#9a958e;font-size:.75em;">
+                ${esc(settings.companyName||'RSP')} · ${esc(settings.owner||'')} · ${esc(settings.phone||'')}
+                &nbsp;·&nbsp; Relatório gerado automaticamente pelo sistema RSP
+            </div>
+
+        </div>`;
+
+        // ── Cria elemento temporário e gera PDF ───────────────────────────────
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        document.body.appendChild(wrapper);
+
+        const filename = 'Relatorio_RSP_' + new Date().toISOString().split('T')[0] + '.pdf';
         await html2pdf().set({
-            margin:      [0.5, 0.5, 0.5, 0.5],
+            margin:      [0.4, 0.4, 0.4, 0.4],
             filename:    filename,
             image:       { type: 'jpeg', quality: 0.97 },
             html2canvas: { scale: 2, useCORS: true, logging: false },
             jsPDF:       { unit: 'in', format: 'a4', orientation: 'portrait' }
-        }).from(el).save();
+        }).from(wrapper).save();
 
-        showToast('✅ PDF exportado com sucesso!', 'success');
+        document.body.removeChild(wrapper);
+        showToast('✅ PDF gerado com sucesso!', 'success');
+
     } catch(e) {
         console.error('PDF error:', e);
         showToast('❌ Erro ao gerar PDF: ' + e.message, 'error', 6000);
     } finally {
-        // Restaura estado da página
-        if (hdr)    hdr.style.display    = 'none';
-        if (navbar) navbar.style.display = '';
         if (btn) { btn.disabled = false; btn.textContent = '📄 Exportar PDF'; }
     }
 };
