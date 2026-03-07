@@ -32,13 +32,17 @@ async function syncLocalToFirebase() {
     const local = LS.getOrders();
     if (!local.length) return { synced: 0, failed: 0 };
 
+    // Lê lista negra diretamente do localStorage (sem helper)
+    var deletedIds = [];
+    try { deletedIds = JSON.parse(localStorage.getItem('rsp_deleted_ids')) || []; } catch(e) {}
+
     let synced = 0, failed = 0;
     for (const order of local) {
         const id = String(order.id);
 
         // NUNCA sincroniza OS que foram excluídas
-        if (LS.isDeleted(id)) {
-            console.log('⛔ OS #' + id + ' está na lista negra — ignorada no sync');
+        if (deletedIds.indexOf(id) !== -1) {
+            console.log('⛔ OS #' + id + ' na lista negra — ignorada');
             continue;
         }
 
@@ -330,16 +334,18 @@ async function initDashboard() {
                 const remote = snap.docs.map(d => ({ ...d.data(), _fbDocId: d.id }));
                 // Merge: Firebase sobrescreve local (status é atualizado pelo cliente via Netlify)
                 // IDs deletados são filtrados — nunca restaurar OS excluídas
+                var deletedIds2 = [];
+                try { deletedIds2 = JSON.parse(localStorage.getItem('rsp_deleted_ids')) || []; } catch(e) {}
                 const local = LS.getOrders();
                 const map = {};
                 local.forEach(o => { map[String(o.id)] = o; });
                 remote.forEach(o => {
                     const id = String(o.id);
-                    if (!LS.isDeleted(id)) {          // ignora deletados
+                    if (deletedIds2.indexOf(id) === -1) {   // ignora deletados
                         map[id] = { ...(map[id] || {}), ...o };
                     }
                 });
-                const merged = Object.values(map).filter(o => !LS.isDeleted(String(o.id)));
+                const merged = Object.values(map).filter(o => deletedIds2.indexOf(String(o.id)) === -1);
                 LS.saveOrders(merged);
                 renderOrders(merged);
             })
