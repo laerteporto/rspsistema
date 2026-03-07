@@ -28,13 +28,20 @@ function initFirebase() {
 
 // ─── Sync OS antigas do localStorage → Firebase ───────────────────────────
 async function syncLocalToFirebase() {
-    if (!db) return;
+    if (!db) return { synced: 0, failed: 0 };
     const local = LS.getOrders();
-    if (!local.length) return;
+    if (!local.length) return { synced: 0, failed: 0 };
 
     let synced = 0, failed = 0;
     for (const order of local) {
         const id = String(order.id);
+
+        // NUNCA sincroniza OS que foram excluídas
+        if (LS.isDeleted(id)) {
+            console.log('⛔ OS #' + id + ' está na lista negra — ignorada no sync');
+            continue;
+        }
+
         try {
             const snap = await db.collection('orders').doc(id).get();
             if (!snap.exists) {
@@ -302,25 +309,33 @@ async function initDashboard() {
         const os = orders.find(o => String(o.id) === String(osId));
         if (!os) return;
 
-        const confirmMsg = `Excluir OS #${osId} de ${os.clientName || 'Cliente'} (${os.category || '-'})?\n\nEsta ação não pode ser desfeita.`;
+        const confirmMsg = 'Excluir OS #' + osId + ' de ' + (os.clientName || 'Cliente') + ' (' + (os.category || '-') + ')?\n\nEsta ação não pode ser desfeita.';
         if (!confirm(confirmMsg)) return;
 
         btn.disabled = true;
         btn.textContent = '⏳';
 
-        // Remove do localStorage
+        // 1. Registra na lista negra ANTES de qualquer outra operação
+        //    Isso impede que sync ou merge restaurem a OS
+        LS.addDeletedId(osId);
+
+        // 2. Remove do localStorage imediatamente
         const updated = orders.filter(o => String(o.id) !== String(osId));
         LS.saveOrders(updated);
 
-        // Remove do Firebase em background
+        // 3. Remove do Firebase aguardando confirmação
         if (db) {
-            db.collection('orders').doc(String(osId)).delete()
-                .then(() => console.log('☁️ OS #' + osId + ' removida do Firebase'))
-                .catch(e => console.warn('Firebase delete OS:', e.message));
+            try {
+                await db.collection('orders').doc(String(osId)).delete();
+                console.log('☁️ OS #' + osId + ' removida do Firebase');
+            } catch(e) {
+                console.warn('Firebase delete OS:', e.message);
+                // Mesmo com falha no Firebase, lista negra impede restauração
+            }
         }
 
-        // Remove a linha da tabela com animação suave
-        const row = tbody.querySelector(`tr[data-os-id="${osId}"]`);
+        // 4. Remove a linha da tabela com animação suave
+        const row = tbody.querySelector('tr[data-os-id="' + osId + '"]');
         if (row) {
             row.style.transition = 'opacity .3s, transform .3s';
             row.style.opacity = '0';
@@ -328,18 +343,14 @@ async function initDashboard() {
             setTimeout(() => {
                 row.remove();
                 updateStats(LS.getOrders());
-                // Mostra mensagem de vazio se não sobrar nenhuma
                 if (!tbody.querySelector('tr[data-os-id]')) {
-                    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:3rem;color:var(--text-muted);">
-                        <div style="font-size:2rem;margin-bottom:.5rem;">📋</div>
-                        Nenhuma OS cadastrada. <a href="service_form.html" style="color:var(--primary);font-weight:600;">Criar primeira OS</a>
-                    </td></tr>`;
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:3rem;color:var(--text-muted);"><div style="font-size:2rem;margin-bottom:.5rem;">📋</div>Nenhuma OS cadastrada. <a href="service_form.html" style="color:var(--primary);font-weight:600;">Criar primeira OS</a></td></tr>';
                     updateStats([]);
                 }
             }, 320);
         }
 
-        showToast('🗑 OS #' + osId + ' excluída.', 'info');
+        showToast('🗑 OS #' + osId + ' excluída com sucesso.', 'info');
     };
 
     function updateStats(orders) {
@@ -365,11 +376,17 @@ async function initDashboard() {
                 // Reconstrói lista com dados do Firebase (status atualizado pelo cliente)
                 const remote = snap.docs.map(d => ({ ...d.data(), _fbDocId: d.id }));
                 // Merge: Firebase sobrescreve local (status é atualizado pelo cliente via Netlify)
+                // IDs deletados são filtrados — nunca restaurar OS excluídas
                 const local = LS.getOrders();
                 const map = {};
-                local.forEach(o  => { map[String(o.id)] = o; });
-                remote.forEach(o => { map[String(o.id)] = { ...map[String(o.id)], ...o }; }); // remote sobrescreve status
-                const merged = Object.values(map);
+                local.forEach(o => { map[String(o.id)] = o; });
+                remote.forEach(o => {
+                    const id = String(o.id);
+                    if (!LS.isDeleted(id)) {          // ignora deletados
+                        map[id] = { ...(map[id] || {}), ...o };
+                    }
+                });
+                const merged = Object.values(map).filter(o => !LS.isDeleted(String(o.id)));
                 LS.saveOrders(merged);
                 renderOrders(merged);
             })
