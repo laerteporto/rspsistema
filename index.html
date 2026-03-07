@@ -27,7 +27,14 @@
             <h2 style="margin-bottom:.2rem;">Visão Geral</h2>
             <p style="font-size:.88rem;color:var(--text-muted);" id="dash-date"></p>
         </div>
-        <a href="service_form.html" class="btn btn-primary">+ Novo Orçamento</a>
+        <div style="display:flex;gap:.75rem;flex-wrap:wrap;">
+            <button class="btn btn-outline btn-sm" id="btn-sync" onclick="forceSyncAll()"
+                title="Sincronizar orçamentos locais com o Firebase"
+                style="font-size:.82rem;padding:.45rem .9rem;">
+                ☁️ Sincronizar
+            </button>
+            <a href="service_form.html" class="btn btn-primary">+ Novo Orçamento</a>
+        </div>
     </div>
 
     <div class="dashboard-grid">

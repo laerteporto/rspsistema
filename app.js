@@ -27,13 +27,12 @@ function initFirebase() {
 }
 
 // ─── Sync OS antigas do localStorage → Firebase ───────────────────────────
-// Roda uma vez no dashboard para recuperar OS que ficaram só no localStorage
 async function syncLocalToFirebase() {
     if (!db) return;
     const local = LS.getOrders();
     if (!local.length) return;
 
-    let synced = 0;
+    let synced = 0, failed = 0;
     for (const order of local) {
         const id = String(order.id);
         try {
@@ -41,17 +40,41 @@ async function syncLocalToFirebase() {
             if (!snap.exists) {
                 await db.collection('orders').doc(id).set(order);
                 synced++;
-                console.log('☁️ OS #' + id + ' sincronizada para Firebase');
+                console.log('☁️ OS #' + id + ' sincronizada');
             }
         } catch(e) {
+            failed++;
             console.warn('Sync OS #' + id + ':', e.message);
         }
     }
-    if (synced > 0) {
-        console.log('✅ ' + synced + ' OS(s) sincronizadas para o Firebase');
-        showToast('☁️ ' + synced + ' orçamento(s) sincronizado(s) com a nuvem.', 'success', 4000);
-    }
+    if (synced > 0) showToast('☁️ ' + synced + ' OS(s) enviada(s) para a nuvem!', 'success', 5000);
+    return { synced, failed };
 }
+
+// Chamada manual pelo botão "Sincronizar" no dashboard
+window.forceSyncAll = async function() {
+    const btn = document.getElementById('btn-sync');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Sincronizando...'; }
+
+    if (!db) {
+        showToast('❌ Firebase não conectado. Verifique sua internet.', 'error', 6000);
+        if (btn) { btn.disabled = false; btn.textContent = '☁️ Sincronizar'; }
+        return;
+    }
+
+    try {
+        const result = await syncLocalToFirebase();
+        if (result.synced === 0 && result.failed === 0) {
+            showToast('✅ Tudo sincronizado! Nenhum orçamento pendente.', 'success', 4000);
+        } else if (result.failed > 0) {
+            showToast('⚠️ ' + result.synced + ' sincronizados, ' + result.failed + ' falharam. Verifique sua internet.', 'error', 6000);
+        }
+    } catch(e) {
+        showToast('❌ Erro na sincronização: ' + e.message, 'error', 6000);
+    }
+
+    if (btn) { btn.disabled = false; btn.textContent = '☁️ Sincronizar'; }
+};
 
 // ─── Toast ─────────────────────────────────────────────────────────────────
 function showToast(msg, type = 'info', duration = 4000) {
@@ -539,32 +562,66 @@ async function initServiceForm() {
 
             isSaving = true;
             sendWABtn.disabled = true;
-            sendWABtn.textContent = '⏳ Preparando...';
 
-            // Salva OS no Firebase (aguarda confirmação)
-            sendWABtn.textContent = '⏳ Salvando OS...';
-            const saved = await persistOrder(buildOrder(currentOSId, 'awaiting_approval'));
-            persistClient({ name: name || 'Cliente', phone, address: '', email: '' });
+            const orderData = buildOrder(currentOSId, 'awaiting_approval');
 
-            if (!saved) {
-                // Firebase falhou — não envia WhatsApp pois o cliente não conseguirá ver
+            // ── Etapa 1: salva localStorage imediatamente ──────────────────
+            sendWABtn.textContent = '⏳ Salvando...';
+            const orders = LS.getOrders();
+            const idx = orders.findIndex(o => String(o.id) === String(currentOSId));
+            if (idx >= 0) orders[idx] = orderData; else orders.push(orderData);
+            LS.saveOrders(orders);
+
+            // ── Etapa 2: salva no Firebase com retry ───────────────────────
+            let firebaseSaved = false;
+            if (db) {
+                for (let tentativa = 1; tentativa <= 3; tentativa++) {
+                    sendWABtn.textContent = '⏳ Enviando para nuvem (' + tentativa + '/3)...';
+                    try {
+                        await db.collection('orders').doc(String(currentOSId)).set(orderData);
+                        firebaseSaved = true;
+                        console.log('☁️ OS #' + currentOSId + ' confirmada no Firebase (tentativa ' + tentativa + ')');
+                        break;
+                    } catch(e) {
+                        console.warn('Tentativa ' + tentativa + ' falhou:', e.code, e.message);
+                        if (tentativa < 3) await new Promise(r => setTimeout(r, 1500));
+                    }
+                }
+            }
+
+            // ── Etapa 3: verifica se realmente está no Firebase ────────────
+            if (firebaseSaved && db) {
+                try {
+                    const verify = await db.collection('orders').doc(String(currentOSId)).get();
+                    if (!verify.exists) {
+                        console.warn('⚠️ Verificação pós-save falhou — documento não encontrado');
+                        firebaseSaved = false;
+                    } else {
+                        console.log('✅ Verificação OK — OS confirmada no Firebase');
+                    }
+                } catch(e) { console.warn('Verificação Firebase:', e.message); }
+            }
+
+            if (!firebaseSaved) {
                 sendWABtn.disabled = false;
-                sendWABtn.textContent = 'Enviar Orçamento pelo WhatsApp';
+                sendWABtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg> Avançar para WhatsApp';
                 isSaving = false;
-                showToast('❌ O orçamento não foi salvo no Firebase. Verifique as regras em: console.firebase.google.com → Firestore → Regras', 'error', 10000);
+                showToast('❌ Não foi possível salvar na nuvem após 3 tentativas. Verifique sua internet e as regras do Firebase.', 'error', 10000);
                 return;
             }
+
+            // ── Etapa 4: salva cliente e monta mensagem ────────────────────
+            persistClient({ name: name || 'Cliente', phone, address: '', email: '' });
 
             const cleanPhone = phone.replace(/\D/g, '');
             const settings   = LS.getSettings();
 
-            // URL de aprovação — usa publicUrl configurada ou mostra aviso
             let approvalUrl;
             const pubUrl = (settings.publicUrl || '').trim().replace(/\/+$/, '');
             if (pubUrl) {
                 approvalUrl = pubUrl + '/quote_approval.html?id=' + currentOSId;
             } else {
-                showToast('⚠️ Configure a URL Pública em Configurações para o cliente acessar o link!', 'error', 7000);
+                showToast('⚠️ Configure a URL Pública em Configurações!', 'error', 7000);
                 const base = window.location.href.substring(0, window.location.href.lastIndexOf('/'));
                 approvalUrl = base + '/quote_approval.html?id=' + currentOSId;
             }
@@ -573,8 +630,9 @@ async function initServiceForm() {
                 '\nOlá ' + (name || 'Cliente') + '! Segue o orçamento para o serviço de *' + category + '*.' +
                 '\n\nToque no link para visualizar e responder:\n👇\n' + approvalUrl;
 
-            window.open(`https://wa.me/55${cleanPhone}?text=${encodeURIComponent(msgText)}`, '_blank');
-            showToast('✅ OS salva! Abrindo WhatsApp...', 'success');
+            sendWABtn.textContent = '✅ Abrindo WhatsApp...';
+            window.open('https://wa.me/55' + cleanPhone + '?text=' + encodeURIComponent(msgText), '_blank');
+            showToast('✅ OS salva na nuvem! Abrindo WhatsApp...', 'success');
             setTimeout(() => location.href = 'index.html', 1500);
         });
     }
