@@ -880,47 +880,71 @@ async function initReports() {
         // ── Painel Conversão ──
         if (el('detail-conversion')) {
             const pendentes = orders.filter(o => o.status === 'pending' || o.status === 'awaiting_approval');
+            const valorPerdidoTotal = rejectedOrders.reduce((s,o) => s+(o.value||0), 0);
+
             el('detail-conversion').innerHTML = `
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;margin-bottom:1.25rem;">
-                    <div style="text-align:center;padding:.75rem;background:var(--success-bg);border-radius:var(--radius);border:1px solid #c8e6c9;">
-                        <div style="font-size:1.6rem;font-weight:700;color:var(--success);">${approved}</div>
-                        <div style="font-size:.68rem;color:var(--success);font-weight:600;text-transform:uppercase;">Aprovadas</div>
+                <!-- 3 contadores empilhados verticalmente — sem corte em qualquer tela -->
+                <div style="display:flex;flex-direction:column;gap:.6rem;margin-bottom:1.25rem;">
+
+                    <div style="display:flex;align-items:center;justify-content:space-between;
+                                padding:.75rem 1rem;background:var(--success-bg);
+                                border-radius:var(--radius);border:1px solid #c8e6c9;">
+                        <div style="display:flex;align-items:center;gap:.6rem;">
+                            <span style="font-size:1.3rem;">✅</span>
+                            <span style="font-size:.8rem;font-weight:700;color:var(--success);text-transform:uppercase;letter-spacing:.5px;">Aprovadas</span>
+                        </div>
+                        <span style="font-size:1.8rem;font-weight:800;color:var(--success);line-height:1;">${approved}</span>
                     </div>
-                    <div style="text-align:center;padding:.75rem;background:var(--danger-bg);border-radius:var(--radius);border:1px solid #ffcdd2;">
-                        <div style="font-size:1.6rem;font-weight:700;color:var(--danger);">${rejected}</div>
-                        <div style="font-size:.68rem;color:var(--danger);font-weight:600;text-transform:uppercase;">Recusadas</div>
+
+                    <div style="display:flex;align-items:center;justify-content:space-between;
+                                padding:.75rem 1rem;background:var(--danger-bg);
+                                border-radius:var(--radius);border:1px solid #ffcdd2;">
+                        <div style="display:flex;align-items:center;gap:.6rem;">
+                            <span style="font-size:1.3rem;">❌</span>
+                            <span style="font-size:.8rem;font-weight:700;color:var(--danger);text-transform:uppercase;letter-spacing:.5px;">Recusadas</span>
+                        </div>
+                        <span style="font-size:1.8rem;font-weight:800;color:var(--danger);line-height:1;">${rejected}</span>
                     </div>
-                    <div style="text-align:center;padding:.75rem;background:var(--warning-bg);border-radius:var(--radius);border:1px solid #ffe0b2;">
-                        <div style="font-size:1.6rem;font-weight:700;color:var(--warning);">${pendentes.length}</div>
-                        <div style="font-size:.68rem;color:var(--warning);font-weight:600;text-transform:uppercase;">Pendentes</div>
+
+                    <div style="display:flex;align-items:center;justify-content:space-between;
+                                padding:.75rem 1rem;background:var(--warning-bg);
+                                border-radius:var(--radius);border:1px solid #ffe0b2;">
+                        <div style="display:flex;align-items:center;gap:.6rem;">
+                            <span style="font-size:1.3rem;">⏳</span>
+                            <span style="font-size:.8rem;font-weight:700;color:var(--warning);text-transform:uppercase;letter-spacing:.5px;">Pendentes</span>
+                        </div>
+                        <span style="font-size:1.8rem;font-weight:800;color:var(--warning);line-height:1;">${pendentes.length}</span>
                     </div>
+
                 </div>
-                <div style="background:var(--surface);border-radius:var(--radius);padding:1rem;margin-bottom:1rem;">
-                    <div style="display:flex;justify-content:space-between;margin-bottom:.5rem;font-size:.82rem;font-weight:600;">
-                        <span style="color:var(--success);">Aprovadas</span>
-                        <span>${convPct}%</span>
+
+                <!-- Barra de progresso -->
+                <div style="background:var(--surface);border-radius:var(--radius);padding:1rem;margin-bottom:1rem;border:1px solid var(--border);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;">
+                        <span style="font-size:.82rem;font-weight:700;color:var(--success);">Taxa de aprovação</span>
+                        <span style="font-size:1.1rem;font-weight:800;color:var(--primary);">${convPct}%</span>
                     </div>
-                    <div style="height:10px;background:var(--border);border-radius:5px;overflow:hidden;">
-                        <div style="height:100%;width:${convPct}%;background:linear-gradient(90deg,var(--success),#4caf50);border-radius:5px;transition:width .6s ease;"></div>
+                    <div style="height:12px;background:var(--border);border-radius:6px;overflow:hidden;">
+                        <div style="height:100%;width:${convPct}%;
+                             background:linear-gradient(90deg,var(--success),#66bb6a);
+                             border-radius:6px;transition:width .6s ease;"></div>
                     </div>
-                    <div style="display:flex;justify-content:space-between;margin-top:.5rem;font-size:.75rem;color:var(--text-muted);">
+                    <div style="display:flex;justify-content:space-between;margin-top:.4rem;font-size:.7rem;color:var(--text-muted);">
                         <span>0%</span><span>50%</span><span>100%</span>
                     </div>
                 </div>
-                ${total === 0 ? '<div class="panel-empty">Sem dados suficientes para calcular conversão.</div>' :
-                  `<div style="font-size:.82rem;color:var(--text-secondary);line-height:1.7;">
-                    📊 De <strong>${total}</strong> orçamentos respondidos, <strong>${approved}</strong> foram aprovados.<br>
-                    💰 Faturamento gerado: <strong style="color:var(--secondary);">${fmtVal(revenue)}</strong><br>
-                    ${valorPerdidoTotal > 0 ? `❌ Valor perdido em recusas: <strong style="color:var(--danger);">${fmtVal(valorPerdidoTotal)}</strong>` : ''}
-                  </div>`
-                }`;
 
-            // Corrige referência de valor perdido
-            var valorPerdidoTotal = rejectedOrders.reduce((s,o)=>s+(o.value||0),0);
-            if (el('detail-conversion')) {
-                el('detail-conversion').innerHTML = el('detail-conversion').innerHTML
-                    .replace('valorPerdidoTotal', valorPerdidoTotal);
-            }
+                <!-- Resumo textual -->
+                ${total === 0
+                    ? '<div class="panel-empty">Sem dados suficientes ainda.</div>'
+                    : `<div style="font-size:.84rem;color:var(--text-secondary);line-height:2;background:var(--surface);
+                                  padding:.85rem 1rem;border-radius:var(--radius);border:1px solid var(--border);">
+                        📊 <strong>${total}</strong> orçamentos respondidos<br>
+                        ✅ <strong>${approved}</strong> aprovados &nbsp;|&nbsp; ❌ <strong>${rejected}</strong> recusados<br>
+                        💰 Faturamento: <strong style="color:var(--secondary);">${fmtVal(revenue)}</strong><br>
+                        ${valorPerdidoTotal > 0 ? `❌ Valor perdido: <strong style="color:var(--danger);">${fmtVal(valorPerdidoTotal)}</strong>` : '🎯 Sem valor perdido em recusas!'}
+                       </div>`
+                }`;
         }
 
         // ── Categorias ──
