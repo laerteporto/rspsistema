@@ -312,45 +312,53 @@ async function initDashboard() {
         const confirmMsg = 'Excluir OS #' + osId + ' de ' + (os.clientName || 'Cliente') + ' (' + (os.category || '-') + ')?\n\nEsta ação não pode ser desfeita.';
         if (!confirm(confirmMsg)) return;
 
+        // Guarda texto original para restaurar se der erro
+        const originalHTML = btn.innerHTML;
         btn.disabled = true;
         btn.textContent = '⏳';
 
-        // 1. Registra na lista negra ANTES de qualquer outra operação
-        //    Isso impede que sync ou merge restaurem a OS
-        LS.addDeletedId(osId);
+        try {
+            // 1. Lista negra PRIMEIRO — impede sync/merge de restaurar
+            LS.addDeletedId(osId);
 
-        // 2. Remove do localStorage imediatamente
-        const updated = orders.filter(o => String(o.id) !== String(osId));
-        LS.saveOrders(updated);
+            // 2. Remove do localStorage imediatamente
+            LS.saveOrders(orders.filter(o => String(o.id) !== String(osId)));
 
-        // 3. Remove do Firebase aguardando confirmação
-        if (db) {
-            try {
-                await db.collection('orders').doc(String(osId)).delete();
-                console.log('☁️ OS #' + osId + ' removida do Firebase');
-            } catch(e) {
-                console.warn('Firebase delete OS:', e.message);
-                // Mesmo com falha no Firebase, lista negra impede restauração
+            // 3. Remove linha da tabela COM ANIMAÇÃO (não espera Firebase)
+            const row = tbody.querySelector('tr[data-os-id="' + osId + '"]');
+            if (row) {
+                row.style.transition = 'opacity .3s, transform .3s';
+                row.style.opacity = '0';
+                row.style.transform = 'translateX(20px)';
+                setTimeout(() => {
+                    row.remove();
+                    updateStats(LS.getOrders());
+                    if (!tbody.querySelector('tr[data-os-id]')) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:3rem;color:var(--text-muted);"><div style="font-size:2rem;margin-bottom:.5rem;">📋</div>Nenhuma OS cadastrada. <a href="service_form.html" style="color:var(--primary);font-weight:600;">Criar primeira OS</a></td></tr>';
+                        updateStats([]);
+                    }
+                }, 320);
             }
-        }
 
-        // 4. Remove a linha da tabela com animação suave
-        const row = tbody.querySelector('tr[data-os-id="' + osId + '"]');
-        if (row) {
-            row.style.transition = 'opacity .3s, transform .3s';
-            row.style.opacity = '0';
-            row.style.transform = 'translateX(20px)';
-            setTimeout(() => {
-                row.remove();
-                updateStats(LS.getOrders());
-                if (!tbody.querySelector('tr[data-os-id]')) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:3rem;color:var(--text-muted);"><div style="font-size:2rem;margin-bottom:.5rem;">📋</div>Nenhuma OS cadastrada. <a href="service_form.html" style="color:var(--primary);font-weight:600;">Criar primeira OS</a></td></tr>';
-                    updateStats([]);
-                }
-            }, 320);
-        }
+            showToast('🗑 OS #' + osId + ' excluída.', 'info');
 
-        showToast('🗑 OS #' + osId + ' excluída com sucesso.', 'info');
+            // 4. Remove do Firebase em background COM TIMEOUT (não trava a UI)
+            if (db) {
+                const deletePromise = db.collection('orders').doc(String(osId)).delete();
+                const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000));
+                Promise.race([deletePromise, timeout])
+                    .then(() => console.log('☁️ OS #' + osId + ' removida do Firebase'))
+                    .catch(e => console.warn('Firebase delete (background):', e.message));
+                // NÃO aguarda — UI já respondeu, lista negra garante que não volta
+            }
+
+        } catch(e) {
+            console.error('Erro ao excluir OS:', e);
+            showToast('❌ Erro ao excluir. Tente novamente.', 'error');
+            // Restaura botão em caso de erro inesperado
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+        }
     };
 
     function updateStats(orders) {
