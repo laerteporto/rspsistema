@@ -785,31 +785,178 @@ async function initClientsPage() {
 // REPORTS
 // ═══════════════════════════════════════════════════════════════════════════
 async function initReports() {
+    function fmtVal(v) {
+        return 'R$ ' + (v || 0).toFixed(2).replace('.', ',');
+    }
+    function fmtDate(d) {
+        if (!d) return '-';
+        return new Date(d).toLocaleDateString('pt-BR');
+    }
+
+    function osItemHTML(o) {
+        return `<div class="os-item">
+            <div class="os-item-left">
+                <span class="os-id">OS #${o.id} · ${fmtDate(o.date)}</span>
+                <span class="os-name">${escHtml(o.clientName || 'Cliente')}</span>
+                <span class="os-cat">${escHtml(o.category || '-')}</span>
+                ${o.description ? `<span style="font-size:.78rem;color:var(--text-muted);margin-top:.1rem;">${escHtml(o.description.substring(0,80))}${o.description.length>80?'…':''}</span>` : ''}
+            </div>
+            <div class="os-item-right">
+                <div class="os-value">${fmtVal(o.value)}</div>
+                <div class="os-date">${statusBadge(o.status)}</div>
+                <div style="margin-top:.4rem;">
+                    <a href="service_form.html?id=${o.id}" class="btn btn-sm btn-outline"
+                       onclick="event.stopPropagation()" style="font-size:.72rem;padding:.25rem .6rem;">Ver OS</a>
+                </div>
+            </div>
+        </div>`;
+    }
+
     function render(orders) {
-        let revenue = 0, approved = 0, rejected = 0;
+        const el = id => document.getElementById(id);
+
+        // ── Cálculos ──
+        const revenueOrders  = orders.filter(o => o.status === 'completed' || o.status === 'approved');
+        const approvedOrders = orders.filter(o => o.status === 'completed' || o.status === 'approved');
+        const rejectedOrders = orders.filter(o => o.status === 'rejected');
+        const revenue  = revenueOrders.reduce((s, o) => s + (o.value || 0), 0);
+        const approved = approvedOrders.length;
+        const rejected = rejectedOrders.length;
+        const total    = approved + rejected;
+        const convPct  = total ? ((approved / total) * 100).toFixed(1) : '0';
+
+        // ── Cabeçalhos ──
+        if (el('report-revenue'))    el('report-revenue').textContent    = fmtVal(revenue);
+        if (el('report-approved'))   el('report-approved').textContent   = approved;
+        if (el('report-rejected'))   el('report-rejected').textContent   = rejected;
+        if (el('report-conversion')) el('report-conversion').textContent = convPct + '%';
+
+        // ── Painel Faturamento ──
+        if (el('detail-revenue')) {
+            if (!revenueOrders.length) {
+                el('detail-revenue').innerHTML = '<div class="panel-empty">Nenhuma OS aprovada ou concluída ainda.</div>';
+            } else {
+                const sorted = [...revenueOrders].sort((a,b) => (b.value||0)-(a.value||0));
+                el('detail-revenue').innerHTML =
+                    sorted.map(osItemHTML).join('') +
+                    `<div class="panel-total">
+                        <span>Total (${sorted.length} OS)</span>
+                        <span style="color:var(--secondary);">${fmtVal(revenue)}</span>
+                    </div>`;
+            }
+        }
+
+        // ── Painel Aprovadas ──
+        if (el('detail-approved')) {
+            if (!approvedOrders.length) {
+                el('detail-approved').innerHTML = '<div class="panel-empty">Nenhuma OS aprovada ainda.</div>';
+            } else {
+                const sorted = [...approvedOrders].sort((a,b) => new Date(b.date)-new Date(a.date));
+                el('detail-approved').innerHTML =
+                    sorted.map(osItemHTML).join('') +
+                    `<div class="panel-total">
+                        <span>${sorted.length} OS aprovada${sorted.length>1?'s':''}</span>
+                        <span style="color:var(--success);">${fmtVal(revenue)}</span>
+                    </div>`;
+            }
+        }
+
+        // ── Painel Recusadas ──
+        if (el('detail-rejected')) {
+            if (!rejectedOrders.length) {
+                el('detail-rejected').innerHTML = '<div class="panel-empty">Nenhuma OS recusada. 🎉</div>';
+            } else {
+                const sorted = [...rejectedOrders].sort((a,b) => new Date(b.date)-new Date(a.date));
+                const valorPerdido = sorted.reduce((s,o) => s+(o.value||0), 0);
+                el('detail-rejected').innerHTML =
+                    sorted.map(osItemHTML).join('') +
+                    `<div class="panel-total">
+                        <span>${sorted.length} OS recusada${sorted.length>1?'s':''}</span>
+                        <span style="color:var(--danger);">Perdido: ${fmtVal(valorPerdido)}</span>
+                    </div>`;
+            }
+        }
+
+        // ── Painel Conversão ──
+        if (el('detail-conversion')) {
+            const pendentes = orders.filter(o => o.status === 'pending' || o.status === 'awaiting_approval');
+            el('detail-conversion').innerHTML = `
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;margin-bottom:1.25rem;">
+                    <div style="text-align:center;padding:.75rem;background:var(--success-bg);border-radius:var(--radius);border:1px solid #c8e6c9;">
+                        <div style="font-size:1.6rem;font-weight:700;color:var(--success);">${approved}</div>
+                        <div style="font-size:.68rem;color:var(--success);font-weight:600;text-transform:uppercase;">Aprovadas</div>
+                    </div>
+                    <div style="text-align:center;padding:.75rem;background:var(--danger-bg);border-radius:var(--radius);border:1px solid #ffcdd2;">
+                        <div style="font-size:1.6rem;font-weight:700;color:var(--danger);">${rejected}</div>
+                        <div style="font-size:.68rem;color:var(--danger);font-weight:600;text-transform:uppercase;">Recusadas</div>
+                    </div>
+                    <div style="text-align:center;padding:.75rem;background:var(--warning-bg);border-radius:var(--radius);border:1px solid #ffe0b2;">
+                        <div style="font-size:1.6rem;font-weight:700;color:var(--warning);">${pendentes.length}</div>
+                        <div style="font-size:.68rem;color:var(--warning);font-weight:600;text-transform:uppercase;">Pendentes</div>
+                    </div>
+                </div>
+                <div style="background:var(--surface);border-radius:var(--radius);padding:1rem;margin-bottom:1rem;">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:.5rem;font-size:.82rem;font-weight:600;">
+                        <span style="color:var(--success);">Aprovadas</span>
+                        <span>${convPct}%</span>
+                    </div>
+                    <div style="height:10px;background:var(--border);border-radius:5px;overflow:hidden;">
+                        <div style="height:100%;width:${convPct}%;background:linear-gradient(90deg,var(--success),#4caf50);border-radius:5px;transition:width .6s ease;"></div>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;margin-top:.5rem;font-size:.75rem;color:var(--text-muted);">
+                        <span>0%</span><span>50%</span><span>100%</span>
+                    </div>
+                </div>
+                ${total === 0 ? '<div class="panel-empty">Sem dados suficientes para calcular conversão.</div>' :
+                  `<div style="font-size:.82rem;color:var(--text-secondary);line-height:1.7;">
+                    📊 De <strong>${total}</strong> orçamentos respondidos, <strong>${approved}</strong> foram aprovados.<br>
+                    💰 Faturamento gerado: <strong style="color:var(--secondary);">${fmtVal(revenue)}</strong><br>
+                    ${valorPerdidoTotal > 0 ? `❌ Valor perdido em recusas: <strong style="color:var(--danger);">${fmtVal(valorPerdidoTotal)}</strong>` : ''}
+                  </div>`
+                }`;
+
+            // Corrige referência de valor perdido
+            var valorPerdidoTotal = rejectedOrders.reduce((s,o)=>s+(o.value||0),0);
+            if (el('detail-conversion')) {
+                el('detail-conversion').innerHTML = el('detail-conversion').innerHTML
+                    .replace('valorPerdidoTotal', valorPerdidoTotal);
+            }
+        }
+
+        // ── Categorias ──
         const cats = {};
         orders.forEach(o => {
-            if (o.status === 'completed' || o.status === 'approved') { revenue += (o.value || 0); approved++; }
-            else if (o.status === 'rejected') rejected++;
             if (o.category && o.category !== 'Selecione...' && o.category !== '') {
-                cats[o.category] = (cats[o.category] || 0) + 1;
+                if (!cats[o.category]) cats[o.category] = { total:0, approved:0, revenue:0 };
+                cats[o.category].total++;
+                if (o.status === 'approved' || o.status === 'completed') {
+                    cats[o.category].approved++;
+                    cats[o.category].revenue += (o.value||0);
+                }
             }
         });
-        const el = id => document.getElementById(id);
-        if (el('report-revenue'))    el('report-revenue').textContent = `R$ ${revenue.toFixed(2).replace('.', ',')}`;
-        if (el('report-total-os'))   el('report-total-os').textContent = orders.length;
-        if (el('report-approved'))   el('report-approved').textContent = approved;
-        if (el('report-rejected'))   el('report-rejected').textContent = rejected;
-        const total = approved + rejected;
-        if (el('report-conversion')) el('report-conversion').textContent = total ? `${((approved/total)*100).toFixed(1)}%` : '0%';
-        const catTb = document.querySelector('#report-categories-table tbody');
-        if (catTb) {
-            const entries = Object.entries(cats).sort((a,b) => b[1]-a[1]);
-            catTb.innerHTML = entries.length
-                ? entries.map(([c,n]) => `<tr><td>${c}</td><td><strong>${n}</strong></td></tr>`).join('')
-                : '<tr><td colspan="2" style="text-align:center;color:var(--text-muted);">Nenhum dado ainda.</td></tr>';
+        const catEl = el('categories-detail');
+        if (catEl) {
+            const entries = Object.entries(cats).sort((a,b) => b[1].total - a[1].total);
+            const maxCount = entries.length ? entries[0][1].total : 1;
+            if (!entries.length) {
+                catEl.innerHTML = '<div class="panel-empty">Nenhum dado ainda.</div>';
+            } else {
+                catEl.innerHTML = entries.map(([cat, data]) => `
+                    <div class="cat-row">
+                        <span style="font-weight:600;font-size:.88rem;min-width:90px;">${escHtml(cat)}</span>
+                        <div class="cat-bar-wrap">
+                            <div class="cat-bar" style="width:${Math.round((data.total/maxCount)*100)}%;"></div>
+                        </div>
+                        <div style="text-align:right;min-width:80px;">
+                            <span class="cat-count">${data.total}</span>
+                            <div style="font-size:.68rem;color:var(--text-muted);">${fmtVal(data.revenue)}</div>
+                        </div>
+                    </div>`).join('');
+            }
         }
     }
+
     render(LS.getOrders());
     loadAllOrders().then(render);
 }
