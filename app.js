@@ -303,63 +303,8 @@ async function initDashboard() {
         updateStats(sorted);
     }
 
-    // Exposta globalmente para uso no onclick inline
-    window.deleteOS = async function(osId, btn) {
-        const orders = LS.getOrders();
-        const os = orders.find(o => String(o.id) === String(osId));
-        if (!os) return;
-
-        const confirmMsg = 'Excluir OS #' + osId + ' de ' + (os.clientName || 'Cliente') + ' (' + (os.category || '-') + ')?\n\nEsta ação não pode ser desfeita.';
-        if (!confirm(confirmMsg)) return;
-
-        // Guarda texto original para restaurar se der erro
-        const originalHTML = btn.innerHTML;
-        btn.disabled = true;
-        btn.textContent = '⏳';
-
-        try {
-            // 1. Lista negra PRIMEIRO — impede sync/merge de restaurar
-            LS.addDeletedId(osId);
-
-            // 2. Remove do localStorage imediatamente
-            LS.saveOrders(orders.filter(o => String(o.id) !== String(osId)));
-
-            // 3. Remove linha da tabela COM ANIMAÇÃO (não espera Firebase)
-            const row = tbody.querySelector('tr[data-os-id="' + osId + '"]');
-            if (row) {
-                row.style.transition = 'opacity .3s, transform .3s';
-                row.style.opacity = '0';
-                row.style.transform = 'translateX(20px)';
-                setTimeout(() => {
-                    row.remove();
-                    updateStats(LS.getOrders());
-                    if (!tbody.querySelector('tr[data-os-id]')) {
-                        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:3rem;color:var(--text-muted);"><div style="font-size:2rem;margin-bottom:.5rem;">📋</div>Nenhuma OS cadastrada. <a href="service_form.html" style="color:var(--primary);font-weight:600;">Criar primeira OS</a></td></tr>';
-                        updateStats([]);
-                    }
-                }, 320);
-            }
-
-            showToast('🗑 OS #' + osId + ' excluída.', 'info');
-
-            // 4. Remove do Firebase em background COM TIMEOUT (não trava a UI)
-            if (db) {
-                const deletePromise = db.collection('orders').doc(String(osId)).delete();
-                const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000));
-                Promise.race([deletePromise, timeout])
-                    .then(() => console.log('☁️ OS #' + osId + ' removida do Firebase'))
-                    .catch(e => console.warn('Firebase delete (background):', e.message));
-                // NÃO aguarda — UI já respondeu, lista negra garante que não volta
-            }
-
-        } catch(e) {
-            console.error('Erro ao excluir OS:', e);
-            showToast('❌ Erro ao excluir. Tente novamente.', 'error');
-            // Restaura botão em caso de erro inesperado
-            btn.disabled = false;
-            btn.innerHTML = originalHTML;
-        }
-    };
+    // deleteOS é definida fora do initDashboard (escopo global)
+    // para evitar problemas de closure no celular
 
     function updateStats(orders) {
         const byStatus = (s) => orders.filter(o => o.status === s).length;
@@ -404,6 +349,65 @@ async function initDashboard() {
             });
     }
 }
+
+// ─── Delete OS (global — acessível pelo onclick inline em qualquer contexto) ─
+window.deleteOS = function(osId, btn) {
+    // Confirma exclusão
+    const orders = LS.getOrders();
+    const os = orders.find(function(o) { return String(o.id) === String(osId); });
+    const nome = os ? (os.clientName || 'Cliente') : 'OS #' + osId;
+    const cat  = os ? (os.category  || '-')        : '-';
+
+    if (!confirm('Excluir OS #' + osId + ' — ' + nome + ' (' + cat + ')?')) return;
+
+    // Feedback visual imediato
+    btn.disabled    = true;
+    btn.textContent = '⏳';
+
+    // 1. Marca como deletada (impede sync de restaurar)
+    var deleted = [];
+    try { deleted = JSON.parse(localStorage.getItem('rsp_deleted_ids')) || []; } catch(e) {}
+    if (deleted.indexOf(String(osId)) === -1) { deleted.push(String(osId)); }
+    localStorage.setItem('rsp_deleted_ids', JSON.stringify(deleted));
+
+    // 2. Remove do localStorage
+    var kept = orders.filter(function(o) { return String(o.id) !== String(osId); });
+    localStorage.setItem('rsp_orders', JSON.stringify(kept));
+
+    // 3. Remove linha da tabela
+    var tr = btn.closest('tr');
+    if (tr) {
+        tr.style.transition = 'opacity .3s, transform .3s';
+        tr.style.opacity    = '0';
+        tr.style.transform  = 'translateX(30px)';
+        setTimeout(function() {
+            tr.remove();
+            // Atualiza contadores
+            var r = kept;
+            var pend = r.filter(function(o){return o.status==='pending'||o.status==='awaiting_approval';}).length;
+            var appr = r.filter(function(o){return o.status==='approved';}).length;
+            var comp = r.filter(function(o){return o.status==='completed';}).length;
+            var ep = document.getElementById('stat-pending');    if(ep) ep.textContent = pend;
+            var ea = document.getElementById('stat-inprogress'); if(ea) ea.textContent = appr;
+            var ec = document.getElementById('stat-completed');  if(ec) ec.textContent = comp;
+            // Tabela vazia
+            var tb = document.querySelector('#dashboard-table tbody');
+            if (tb && !tb.querySelector('tr[data-os-id]')) {
+                tb.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:3rem;color:#888;"><div style="font-size:2rem;">📋</div>Nenhuma OS cadastrada.</td></tr>';
+            }
+        }, 350);
+    }
+
+    showToast('🗑 OS #' + osId + ' excluída.', 'info');
+
+    // 4. Remove do Firebase em background (não bloqueia nada)
+    if (db) {
+        db.collection('orders').doc(String(osId)).delete()
+            .then(function() { console.log('☁️ OS #' + osId + ' removida do Firebase'); })
+            .catch(function(e) { console.warn('Firebase delete:', e.message); });
+    }
+};
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SERVICE FORM
