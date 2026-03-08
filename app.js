@@ -403,42 +403,50 @@ async function initDashboard() {
         if (el('stat-completed'))  el('stat-completed').textContent  = byStatus('completed');
     }
 
-    // 0. Sincroniza OS locais para Firebase (recupera OS antigas não enviadas)
-    setTimeout(() => syncLocalToFirebase(), 2000);
-
-    // 1. Mostra local imediatamente (resposta rápida)
+    // 1. Mostra cache local imediatamente (resposta visual rápida)
     renderOrders(LS.getOrders());
 
-    // 2. Busca Firebase e atualiza — Firebase é fonte de verdade para STATUS
-    //    (o cliente aprova/recusa pelo Netlify, não pelo computador do técnico)
+    // 2. onSnapshot — escuta mudanças em tempo real no Firebase
+    //    Qualquer alteração em QUALQUER dispositivo (excluir, aprovar, criar)
+    //    é refletida automaticamente em todos os outros dispositivos abertos
     if (db) {
-        db.collection('orders').get()
-            .then(snap => {
-                if (snap.empty) return;
-                // Reconstrói lista com dados do Firebase (status atualizado pelo cliente)
-                const remote = snap.docs.map(d => ({ ...d.data(), _fbDocId: d.id }));
-                // Merge: Firebase sobrescreve local (status é atualizado pelo cliente via Netlify)
-                // IDs deletados são filtrados — nunca restaurar OS excluídas
-                var deletedIds2 = [];
-                try { deletedIds2 = JSON.parse(localStorage.getItem('rsp_deleted_ids')) || []; } catch(e) {}
-                const local = LS.getOrders();
-                const map = {};
-                local.forEach(o => { map[String(o.id)] = o; });
-                remote.forEach(o => {
-                    const id = String(o.id);
-                    if (deletedIds2.indexOf(id) === -1) {   // ignora deletados
-                        map[id] = { ...(map[id] || {}), ...o };
-                    }
-                });
-                const merged = Object.values(map).filter(o => deletedIds2.indexOf(String(o.id)) === -1);
-                LS.saveOrders(merged);
-                renderOrders(merged);
-            })
-            .catch(e => {
-                console.warn('Dashboard Firebase sync:', e.message);
-                // Se falhar, usa local mesmo
+        db.collection('orders').onSnapshot(snap => {
+            var deletedIds = [];
+            try { deletedIds = JSON.parse(localStorage.getItem('rsp_deleted_ids')) || []; } catch(e) {}
+
+            // Reconstrói lista completa do Firebase, ignorando OS excluídas localmente
+            const fromFirebase = snap.docs
+                .map(d => d.data())
+                .filter(o => deletedIds.indexOf(String(o.id)) === -1);
+
+            // Atualiza cache local com dados do Firebase
+            LS.saveOrders(fromFirebase);
+
+            // Re-renderiza o dashboard
+            renderOrders(fromFirebase);
+            console.log('🔴 onSnapshot: ' + fromFirebase.length + ' OS do Firebase');
+        }, err => {
+            console.warn('⚠️ onSnapshot erro:', err.message);
+            // Fallback: busca única sem tempo real
+            db.collection('orders').get().then(snap => {
+                const orders = snap.docs.map(d => d.data());
+                LS.saveOrders(orders);
+                renderOrders(orders);
+            }).catch(() => {});
+        });
+    } else {
+        // Sem Firebase: usa local e tenta reconectar
+        setTimeout(() => {
+            if (db) db.collection('orders').onSnapshot(snap => {
+                const orders = snap.docs.map(d => d.data());
+                LS.saveOrders(orders);
+                renderOrders(orders);
             });
+        }, 3000);
     }
+
+    // 3. Sincroniza OS locais órfãs para o Firebase em background
+    setTimeout(() => syncLocalToFirebase(), 2500);
 }
 
 // ─── Delete OS (global — acessível pelo onclick inline em qualquer contexto) ─
@@ -491,11 +499,27 @@ window.deleteOS = function(osId, btn) {
 
     showToast('🗑 OS #' + osId + ' excluída.', 'info');
 
-    // 4. Remove do Firebase em background (não bloqueia nada)
+    // 4. Remove do Firebase — isso dispara o onSnapshot em TODOS os dispositivos
+    //    automaticamente, fazendo o dashboard atualizar em tempo real no PC e celular
     if (db) {
-        db.collection('orders').doc(String(osId)).delete()
-            .then(function() { console.log('☁️ OS #' + osId + ' removida do Firebase'); })
-            .catch(function(e) { console.warn('Firebase delete:', e.message); });
+        var MAX_TRIES = 3, attempt = 0;
+        function tryDelete() {
+            attempt++;
+            db.collection('orders').doc(String(osId)).delete()
+                .then(function() {
+                    console.log('☁️ OS #' + osId + ' removida do Firebase (tentativa ' + attempt + ')');
+                })
+                .catch(function(e) {
+                    console.warn('Firebase delete tentativa ' + attempt + ':', e.message);
+                    if (attempt < MAX_TRIES) {
+                        setTimeout(tryDelete, 2000 * attempt); // retry com backoff
+                    } else {
+                        console.error('❌ Falha ao remover OS #' + osId + ' do Firebase após ' + MAX_TRIES + ' tentativas');
+                        showToast('⚠️ OS removida localmente. Sincronize para remover da nuvem.', 'error', 6000);
+                    }
+                });
+        }
+        tryDelete();
     }
 };
 
@@ -1068,6 +1092,18 @@ async function initReports() {
 
     render(LS.getOrders());
     loadAllOrders().then(render);
+
+    // Escuta mudanças em tempo real (excluir OS no celular atualiza relatórios no PC)
+    if (db) {
+        db.collection('orders').onSnapshot(snap => {
+            var deletedIds = [];
+            try { deletedIds = JSON.parse(localStorage.getItem('rsp_deleted_ids')) || []; } catch(e) {}
+            const orders = snap.docs.map(d => d.data())
+                .filter(o => deletedIds.indexOf(String(o.id)) === -1);
+            LS.saveOrders(orders);
+            render(orders);
+        }, () => {});
+    }
 }
 
 window.exportReportToPDF = async function () {
