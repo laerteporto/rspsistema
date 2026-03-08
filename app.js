@@ -1,5 +1,5 @@
-// app.js - RSP System v2 — localStorage é a fonte de verdade
-// Firebase é secundário (sync em background). Nunca sobrescreve dados locais frescos.
+// app.js - RSP System v2 — Firebase é a FONTE DE VERDADE
+// localStorage é cache local. Firebase sempre prevalece no merge.
 
 // ─── Firebase Config ───────────────────────────────────────────────────────
 const firebaseConfig = {
@@ -26,65 +26,99 @@ function initFirebase() {
     }
 }
 
-// ─── Sync OS antigas do localStorage → Firebase ───────────────────────────
+// ─── Sincronização Bidirecional: Firebase ↔ localStorage ─────────────────
+// Firebase sempre prevalece. Dados locais exclusivos sobem para a nuvem.
 async function syncLocalToFirebase() {
-    if (!db) return { synced: 0, failed: 0 };
-    const local = LS.getOrders();
-    if (!local.length) return { synced: 0, failed: 0 };
+    if (!db) return { synced: 0, failed: 0, pulled: 0 };
 
-    // Lê lista negra diretamente do localStorage (sem helper)
     var deletedIds = [];
     try { deletedIds = JSON.parse(localStorage.getItem('rsp_deleted_ids')) || []; } catch(e) {}
 
-    let synced = 0, failed = 0;
-    for (const order of local) {
-        const id = String(order.id);
+    let synced = 0, failed = 0, pulled = 0;
 
-        // NUNCA sincroniza OS que foram excluídas
-        if (deletedIds.indexOf(id) !== -1) {
-            console.log('⛔ OS #' + id + ' na lista negra — ignorada');
-            continue;
-        }
+    try {
+        // 1. Busca tudo do Firebase
+        const snap = await db.collection('orders').get();
+        const remote = snap.docs.map(d => d.data());
+        const remoteMap = {};
+        remote.forEach(o => { remoteMap[String(o.id)] = o; });
 
-        try {
-            const snap = await db.collection('orders').doc(id).get();
-            if (!snap.exists) {
-                await db.collection('orders').doc(id).set(order);
-                synced++;
-                console.log('☁️ OS #' + id + ' sincronizada');
+        // 2. OS locais que não estão no Firebase → sobe (exceto deletadas)
+        const local = LS.getOrders();
+        for (const order of local) {
+            const id = String(order.id);
+            if (deletedIds.indexOf(id) !== -1) continue;
+            if (!remoteMap[id]) {
+                try {
+                    await db.collection('orders').doc(id).set(order);
+                    synced++;
+                    console.log('⬆️ OS #' + id + ' enviada ao Firebase');
+                } catch(e) {
+                    failed++;
+                    console.warn('⬆️ Falha OS #' + id + ':', e.message);
+                }
             }
-        } catch(e) {
-            failed++;
-            console.warn('Sync OS #' + id + ':', e.message);
         }
+
+        // 3. Firebase → atualiza cache local (Firebase prevalece)
+        const localMap = {};
+        local.forEach(o => { localMap[String(o.id)] = o; });
+        for (const o of remote) {
+            const id = String(o.id);
+            if (deletedIds.indexOf(id) !== -1) continue;
+            if (!localMap[id] || JSON.stringify(localMap[id]) !== JSON.stringify(o)) {
+                localMap[id] = o;
+                pulled++;
+            }
+        }
+
+        // 4. Remove excluídas do cache local
+        const finalOrders = Object.values(localMap)
+            .filter(o => deletedIds.indexOf(String(o.id)) === -1);
+        LS.saveOrders(finalOrders);
+
+        if (pulled > 0) console.log('⬇️ ' + pulled + ' OS(s) atualizadas do Firebase');
+
+    } catch(e) {
+        failed++;
+        console.warn('Sync bidirecional falhou:', e.message);
     }
-    if (synced > 0) showToast('☁️ ' + synced + ' OS(s) enviada(s) para a nuvem!', 'success', 5000);
-    return { synced, failed };
+
+    return { synced, failed, pulled };
 }
 
-// Chamada manual pelo botão "Sincronizar" no dashboard
+// Botão "Sincronizar" no dashboard — força sync completo e re-renderiza
 window.forceSyncAll = async function() {
     const btn = document.getElementById('btn-sync');
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ Sincronizando...'; }
+    if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Sincronizando...'; }
 
     if (!db) {
         showToast('❌ Firebase não conectado. Verifique sua internet.', 'error', 6000);
-        if (btn) { btn.disabled = false; btn.textContent = '☁️ Sincronizar'; }
+        if (btn) { btn.disabled = false; btn.innerHTML = '☁️ Sincronizar'; }
         return;
     }
 
     try {
+        showToast('🔄 Buscando dados da nuvem...', 'info', 3000);
         const result = await syncLocalToFirebase();
-        if (result.synced === 0 && result.failed === 0) {
-            showToast('✅ Tudo sincronizado! Nenhum orçamento pendente.', 'success', 4000);
-        } else if (result.failed > 0) {
-            showToast('⚠️ ' + result.synced + ' sincronizados, ' + result.failed + ' falharam. Verifique sua internet.', 'error', 6000);
+
+        // Re-renderiza o dashboard com dados frescos do Firebase
+        const freshOrders = await loadAllOrders();
+        if (window._dashboardRender) window._dashboardRender(freshOrders);
+
+        const total = result.synced + result.pulled;
+        if (result.failed > 0) {
+            showToast('⚠️ ' + result.failed + ' item(ns) falharam. Verifique a internet.', 'error', 6000);
+        } else if (total === 0) {
+            showToast('✅ Tudo sincronizado! Dados já estão atualizados.', 'success', 4000);
+        } else {
+            showToast('✅ Sincronizado! ⬆️' + result.synced + ' enviadas · ⬇️' + result.pulled + ' atualizadas', 'success', 5000);
         }
     } catch(e) {
-        showToast('❌ Erro na sincronização: ' + e.message, 'error', 6000);
+        showToast('❌ Erro: ' + e.message, 'error', 6000);
     }
 
-    if (btn) { btn.disabled = false; btn.textContent = '☁️ Sincronizar'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = '☁️ Sincronizar'; }
 };
 
 // ─── Toast ─────────────────────────────────────────────────────────────────
@@ -103,7 +137,7 @@ function showToast(msg, type = 'info', duration = 4000) {
     el._timer = setTimeout(() => el.classList.remove('show'), duration);
 }
 
-// ─── LocalStorage — FONTE DE VERDADE ──────────────────────────────────────
+// ─── LocalStorage — CACHE LOCAL (Firebase prevalece no merge) ───────────────
 const LS = {
     getOrders: () => {
         try { return JSON.parse(localStorage.getItem('rsp_orders')) || []; }
@@ -187,44 +221,94 @@ function persistClient(clientData) {
     }
 }
 
-// ─── Load Orders: local + merge Firebase (sem sobrescrever local) ──────────
+// ─── Load Orders: Firebase é a fonte de verdade ───────────────────────────
 async function loadAllOrders() {
     const local = LS.getOrders();
-    if (!db) return local;
+    if (!db) {
+        console.warn('⚠️ Firebase indisponível — usando cache local');
+        return local;
+    }
     try {
         const snap = await db.collection('orders').get();
-        if (snap.empty) return local;
-        const remote = snap.docs.map(d => ({ ...d.data(), _fbDocId: d.id }));
-        // Merge: local tem prioridade (mais recente)
-        const map = {};
-        remote.forEach(o => { map[String(o.id)] = o; });
-        local.forEach(o  => { map[String(o.id)] = o; }); // local sobrescreve remote
-        const merged = Object.values(map);
+        if (snap.empty) {
+            // Firebase vazio: sobe os dados locais para a nuvem
+            if (local.length > 0) {
+                console.log('☁️ Firebase vazio — enviando dados locais...');
+                for (const o of local) {
+                    try { await db.collection('orders').doc(String(o.id)).set(o); } catch(_) {}
+                }
+            }
+            return local;
+        }
+
+        // Firebase tem dados: ele prevalece
+        const remote = snap.docs.map(d => ({ ...d.data() }));
+
+        // Lê lista negra para não restaurar OS excluídas
+        let deletedIds = [];
+        try { deletedIds = JSON.parse(localStorage.getItem('rsp_deleted_ids')) || []; } catch(_) {}
+
+        // Merge: Firebase prevalece; apenas OS locais NOVAS (não existem no Firebase)
+        // que não estejam na lista negra são adicionadas ao Firebase
+        const remoteMap = {};
+        remote.forEach(o => { remoteMap[String(o.id)] = o; });
+
+        const onlyLocal = local.filter(o =>
+            !remoteMap[String(o.id)] &&
+            deletedIds.indexOf(String(o.id)) === -1
+        );
+
+        // Envia OS locais novas ao Firebase em background
+        if (onlyLocal.length > 0) {
+            console.log('☁️ Enviando ' + onlyLocal.length + ' OS local(is) para Firebase...');
+            for (const o of onlyLocal) {
+                try { await db.collection('orders').doc(String(o.id)).set(o); remote.push(o); }
+                catch(e) { console.warn('Upload OS #' + o.id + ':', e.message); }
+            }
+        }
+
+        // Filtra excluídas do resultado final
+        const merged = remote.filter(o => deletedIds.indexOf(String(o.id)) === -1);
+
+        // Atualiza cache local com dados do Firebase
         LS.saveOrders(merged);
+        console.log('✅ Sincronizado: ' + merged.length + ' OS do Firebase');
         return merged;
     } catch (e) {
-        console.warn('Firebase loadOrders:', e.message);
+        console.warn('⚠️ Firebase loadOrders falhou — usando cache local:', e.message);
         return local;
     }
 }
 
-// ─── Load Clients: local + merge Firebase (sem sobrescrever local) ─────────
+// ─── Load Clients: Firebase é a fonte de verdade ──────────────────────────
 async function loadAllClients() {
     const local = LS.getClients();
     if (!db) return local;
     try {
         const snap = await db.collection('clients').get();
-        if (snap.empty) return local;
+        if (snap.empty) {
+            // Firebase vazio: sobe clientes locais
+            for (const c of local) {
+                try { await db.collection('clients').add(c); } catch(_) {}
+            }
+            return local;
+        }
+
         const remote = snap.docs.map(d => ({ ...d.data(), _fbDocId: d.id }));
-        // Merge: local tem prioridade
-        const map = {};
-        remote.forEach(c => { map[c.phone] = c; });
-        local.forEach(c  => { map[c.phone] = c; }); // local sobrescreve
-        const merged = Object.values(map);
-        LS.saveClients(merged);
-        return merged;
+
+        // Clientes apenas locais → sobe ao Firebase
+        const remotePhones = new Set(remote.map(c => c.phone));
+        const onlyLocal = local.filter(c => !remotePhones.has(c.phone));
+        for (const c of onlyLocal) {
+            try { await db.collection('clients').add(c); remote.push(c); }
+            catch(e) { console.warn('Upload client:', e.message); }
+        }
+
+        // Firebase prevalece
+        LS.saveClients(remote);
+        return remote;
     } catch (e) {
-        console.warn('Firebase loadClients:', e.message);
+        console.warn('⚠️ Firebase loadClients falhou:', e.message);
         return local;
     }
 }
@@ -277,6 +361,7 @@ async function initDashboard() {
 
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-muted);">⏳ Carregando...</td></tr>';
 
+    window._dashboardRender = renderOrders;
     function renderOrders(orders) {
         const sorted = [...orders].sort((a, b) => new Date(b.date) - new Date(a.date));
         tbody.innerHTML = '';
