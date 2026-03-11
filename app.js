@@ -1,5 +1,5 @@
-// app.js - RSP System v2 — localStorage é a fonte de verdade
-// Firebase é secundário (sync em background). Nunca sobrescreve dados locais frescos.
+// app.js - RSP System v2 — Firebase é a FONTE DE VERDADE
+// localStorage é cache local. Firebase sempre prevalece no merge.
 
 // ─── Firebase Config ───────────────────────────────────────────────────────
 const firebaseConfig = {
@@ -26,32 +26,113 @@ function initFirebase() {
     }
 }
 
-// ─── Sync OS antigas do localStorage → Firebase ───────────────────────────
-// Roda uma vez no dashboard para recuperar OS que ficaram só no localStorage
+// ─── Sincronização Bidirecional: Firebase ↔ localStorage ─────────────────
+// Firebase sempre prevalece. Dados locais exclusivos sobem para a nuvem.
 async function syncLocalToFirebase() {
-    if (!db) return;
-    const local = LS.getOrders();
-    if (!local.length) return;
+    if (!db) return { synced: 0, failed: 0, pulled: 0 };
 
-    let synced = 0;
-    for (const order of local) {
-        const id = String(order.id);
-        try {
-            const snap = await db.collection('orders').doc(id).get();
-            if (!snap.exists) {
-                await db.collection('orders').doc(id).set(order);
-                synced++;
-                console.log('☁️ OS #' + id + ' sincronizada para Firebase');
+    var deletedIds = [];
+    try { deletedIds = JSON.parse(localStorage.getItem('rsp_deleted_ids')) || []; } catch(e) {}
+
+    let synced = 0, failed = 0, pulled = 0;
+
+    try {
+        // 1. Busca tudo do Firebase
+        const snap = await db.collection('orders').get();
+        const remote = snap.docs.map(d => d.data());
+        const remoteMap = {};
+        remote.forEach(o => { remoteMap[String(o.id)] = o; });
+
+        // 2. OS locais que não estão no Firebase → sobe (exceto deletadas)
+        // IMPORTANTE: Se o Firebase não tem a OS, pode ser porque outro dispositivo
+        // a deletou. Só sobe se a OS NÃO estiver na lista negra local.
+        const local = LS.getOrders();
+        for (const order of local) {
+            const id = String(order.id);
+            if (deletedIds.indexOf(id) !== -1) continue; // na lista negra → nunca sobe
+            if (!remoteMap[id]) {
+                // Verifica novamente se não está deletada (double-check)
+                try {
+                    const check = await db.collection('orders').doc(id).get();
+                    if (!check.exists) {
+                        // Realmente não existe no Firebase: sobe
+                        await db.collection('orders').doc(id).set(order);
+                        synced++;
+                        console.log('⬆️ OS #' + id + ' enviada ao Firebase');
+                    }
+                    // Se existe (foi deletada e recriada por outro): não faz nada
+                } catch(e) {
+                    failed++;
+                    console.warn('⬆️ Falha OS #' + id + ':', e.message);
+                }
             }
-        } catch(e) {
-            console.warn('Sync OS #' + id + ':', e.message);
         }
+
+        // 3. Firebase → atualiza cache local (Firebase prevalece)
+        const localMap = {};
+        local.forEach(o => { localMap[String(o.id)] = o; });
+        for (const o of remote) {
+            const id = String(o.id);
+            if (deletedIds.indexOf(id) !== -1) continue;
+            if (!localMap[id] || JSON.stringify(localMap[id]) !== JSON.stringify(o)) {
+                localMap[id] = o;
+                pulled++;
+            }
+        }
+
+        // 4. Remove excluídas do cache local
+        const finalOrders = Object.values(localMap)
+            .filter(o => deletedIds.indexOf(String(o.id)) === -1);
+        LS.saveOrders(finalOrders);
+
+        if (pulled > 0) console.log('⬇️ ' + pulled + ' OS(s) atualizadas do Firebase');
+
+    } catch(e) {
+        failed++;
+        console.warn('Sync bidirecional falhou:', e.message);
     }
-    if (synced > 0) {
-        console.log('✅ ' + synced + ' OS(s) sincronizadas para o Firebase');
-        showToast('☁️ ' + synced + ' orçamento(s) sincronizado(s) com a nuvem.', 'success', 4000);
-    }
+
+    return { synced, failed, pulled };
 }
+
+// Botão "Sincronizar" no dashboard — força sync completo e re-renderiza
+window.forceSyncAll = async function() {
+    const btn = document.getElementById('btn-sync');
+    if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Sincronizando...'; }
+
+    if (!db) {
+        showToast('❌ Firebase não conectado. Verifique sua internet.', 'error', 6000);
+        if (btn) { btn.disabled = false; btn.innerHTML = '☁️ Sincronizar'; }
+        return;
+    }
+
+    try {
+        showToast('🔄 Buscando dados da nuvem...', 'info', 3000);
+
+        // Busca TUDO do Firebase e substitui o localStorage completamente
+        const snap = await db.collection('orders').get();
+        var localDeleted = [];
+        try { localDeleted = JSON.parse(localStorage.getItem('rsp_deleted_ids')) || []; } catch(e) {}
+
+        const fromFirebase = snap.docs.map(d => d.data())
+            .filter(o => localDeleted.indexOf(String(o.id)) === -1);
+
+        // Substitui localStorage completamente pelo Firebase
+        localStorage.setItem('rsp_orders', JSON.stringify(fromFirebase));
+
+        // Re-renderiza
+        if (window._dashboardRender) window._dashboardRender(fromFirebase);
+
+        // Sobe OS locais que não existem no Firebase
+        const result = await syncLocalToFirebase();
+
+        showToast('✅ Sincronizado! ' + fromFirebase.length + ' OS carregadas da nuvem.', 'success', 5000);
+    } catch(e) {
+        showToast('❌ Erro: ' + e.message, 'error', 6000);
+    }
+
+    if (btn) { btn.disabled = false; btn.innerHTML = '☁️ Sincronizar'; }
+};
 
 // ─── Toast ─────────────────────────────────────────────────────────────────
 function showToast(msg, type = 'info', duration = 4000) {
@@ -69,7 +150,7 @@ function showToast(msg, type = 'info', duration = 4000) {
     el._timer = setTimeout(() => el.classList.remove('show'), duration);
 }
 
-// ─── LocalStorage — FONTE DE VERDADE ──────────────────────────────────────
+// ─── LocalStorage — CACHE LOCAL (Firebase prevalece no merge) ───────────────
 const LS = {
     getOrders: () => {
         try { return JSON.parse(localStorage.getItem('rsp_orders')) || []; }
@@ -153,44 +234,94 @@ function persistClient(clientData) {
     }
 }
 
-// ─── Load Orders: local + merge Firebase (sem sobrescrever local) ──────────
+// ─── Load Orders: Firebase é a fonte de verdade ───────────────────────────
 async function loadAllOrders() {
     const local = LS.getOrders();
-    if (!db) return local;
+    if (!db) {
+        console.warn('⚠️ Firebase indisponível — usando cache local');
+        return local;
+    }
     try {
         const snap = await db.collection('orders').get();
-        if (snap.empty) return local;
-        const remote = snap.docs.map(d => ({ ...d.data(), _fbDocId: d.id }));
-        // Merge: local tem prioridade (mais recente)
-        const map = {};
-        remote.forEach(o => { map[String(o.id)] = o; });
-        local.forEach(o  => { map[String(o.id)] = o; }); // local sobrescreve remote
-        const merged = Object.values(map);
+        if (snap.empty) {
+            // Firebase vazio: sobe os dados locais para a nuvem
+            if (local.length > 0) {
+                console.log('☁️ Firebase vazio — enviando dados locais...');
+                for (const o of local) {
+                    try { await db.collection('orders').doc(String(o.id)).set(o); } catch(_) {}
+                }
+            }
+            return local;
+        }
+
+        // Firebase tem dados: ele prevalece
+        const remote = snap.docs.map(d => ({ ...d.data() }));
+
+        // Lê lista negra para não restaurar OS excluídas
+        let deletedIds = [];
+        try { deletedIds = JSON.parse(localStorage.getItem('rsp_deleted_ids')) || []; } catch(_) {}
+
+        // Merge: Firebase prevalece; apenas OS locais NOVAS (não existem no Firebase)
+        // que não estejam na lista negra são adicionadas ao Firebase
+        const remoteMap = {};
+        remote.forEach(o => { remoteMap[String(o.id)] = o; });
+
+        const onlyLocal = local.filter(o =>
+            !remoteMap[String(o.id)] &&
+            deletedIds.indexOf(String(o.id)) === -1
+        );
+
+        // Envia OS locais novas ao Firebase em background
+        if (onlyLocal.length > 0) {
+            console.log('☁️ Enviando ' + onlyLocal.length + ' OS local(is) para Firebase...');
+            for (const o of onlyLocal) {
+                try { await db.collection('orders').doc(String(o.id)).set(o); remote.push(o); }
+                catch(e) { console.warn('Upload OS #' + o.id + ':', e.message); }
+            }
+        }
+
+        // Filtra excluídas do resultado final
+        const merged = remote.filter(o => deletedIds.indexOf(String(o.id)) === -1);
+
+        // Atualiza cache local com dados do Firebase
         LS.saveOrders(merged);
+        console.log('✅ Sincronizado: ' + merged.length + ' OS do Firebase');
         return merged;
     } catch (e) {
-        console.warn('Firebase loadOrders:', e.message);
+        console.warn('⚠️ Firebase loadOrders falhou — usando cache local:', e.message);
         return local;
     }
 }
 
-// ─── Load Clients: local + merge Firebase (sem sobrescrever local) ─────────
+// ─── Load Clients: Firebase é a fonte de verdade ──────────────────────────
 async function loadAllClients() {
     const local = LS.getClients();
     if (!db) return local;
     try {
         const snap = await db.collection('clients').get();
-        if (snap.empty) return local;
+        if (snap.empty) {
+            // Firebase vazio: sobe clientes locais
+            for (const c of local) {
+                try { await db.collection('clients').add(c); } catch(_) {}
+            }
+            return local;
+        }
+
         const remote = snap.docs.map(d => ({ ...d.data(), _fbDocId: d.id }));
-        // Merge: local tem prioridade
-        const map = {};
-        remote.forEach(c => { map[c.phone] = c; });
-        local.forEach(c  => { map[c.phone] = c; }); // local sobrescreve
-        const merged = Object.values(map);
-        LS.saveClients(merged);
-        return merged;
+
+        // Clientes apenas locais → sobe ao Firebase
+        const remotePhones = new Set(remote.map(c => c.phone));
+        const onlyLocal = local.filter(c => !remotePhones.has(c.phone));
+        for (const c of onlyLocal) {
+            try { await db.collection('clients').add(c); remote.push(c); }
+            catch(e) { console.warn('Upload client:', e.message); }
+        }
+
+        // Firebase prevalece
+        LS.saveClients(remote);
+        return remote;
     } catch (e) {
-        console.warn('Firebase loadClients:', e.message);
+        console.warn('⚠️ Firebase loadClients falhou:', e.message);
         return local;
     }
 }
@@ -243,6 +374,7 @@ async function initDashboard() {
 
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-muted);">⏳ Carregando...</td></tr>';
 
+    window._dashboardRender = renderOrders;
     function renderOrders(orders) {
         const sorted = [...orders].sort((a, b) => new Date(b.date) - new Date(a.date));
         tbody.innerHTML = '';
@@ -258,12 +390,12 @@ async function initDashboard() {
             const tr = document.createElement('tr');
             tr.dataset.osId = o.id;
             tr.innerHTML = `
-                <td><strong>#${o.id}</strong></td>
-                <td>${escHtml(o.clientName || '-')}</td>
-                <td><span style="background:var(--primary-light);color:var(--primary-dark);padding:.2rem .6rem;border-radius:4px;font-size:.8rem;font-weight:600;">${escHtml(o.category || '-')}</span></td>
-                <td style="color:var(--text-muted);font-size:.88rem;">${new Date(o.date).toLocaleDateString('pt-BR')}</td>
-                <td>${statusBadge(o.status)}</td>
-                <td style="display:flex;gap:.4rem;flex-wrap:wrap;">
+                <td data-label="OS #"><strong>#${o.id}</strong></td>
+                <td data-label="Cliente">${escHtml(o.clientName || '-')}</td>
+                <td data-label="Categoria"><span style="background:var(--primary-light);color:var(--primary-dark);padding:.2rem .6rem;border-radius:4px;font-size:.8rem;font-weight:600;">${escHtml(o.category || '-')}</span></td>
+                <td data-label="Data" style="color:var(--text-muted);font-size:.88rem;">${new Date(o.date).toLocaleDateString('pt-BR')}</td>
+                <td data-label="Status">${statusBadge(o.status)}</td>
+                <td>
                     <button class="btn btn-sm btn-outline" onclick="location.href='service_form.html?id=${o.id}'">Ver OS</button>
                     <button class="btn btn-sm btn-outline" style="color:var(--danger);border-color:var(--danger);"
                         onclick="deleteOS('${o.id}', this)">🗑 Excluir</button>
@@ -273,51 +405,8 @@ async function initDashboard() {
         updateStats(sorted);
     }
 
-    // Exposta globalmente para uso no onclick inline
-    window.deleteOS = async function(osId, btn) {
-        const orders = LS.getOrders();
-        const os = orders.find(o => String(o.id) === String(osId));
-        if (!os) return;
-
-        const confirmMsg = `Excluir OS #${osId} de ${os.clientName || 'Cliente'} (${os.category || '-'})?\n\nEsta ação não pode ser desfeita.`;
-        if (!confirm(confirmMsg)) return;
-
-        btn.disabled = true;
-        btn.textContent = '⏳';
-
-        // Remove do localStorage
-        const updated = orders.filter(o => String(o.id) !== String(osId));
-        LS.saveOrders(updated);
-
-        // Remove do Firebase em background
-        if (db) {
-            db.collection('orders').doc(String(osId)).delete()
-                .then(() => console.log('☁️ OS #' + osId + ' removida do Firebase'))
-                .catch(e => console.warn('Firebase delete OS:', e.message));
-        }
-
-        // Remove a linha da tabela com animação suave
-        const row = tbody.querySelector(`tr[data-os-id="${osId}"]`);
-        if (row) {
-            row.style.transition = 'opacity .3s, transform .3s';
-            row.style.opacity = '0';
-            row.style.transform = 'translateX(20px)';
-            setTimeout(() => {
-                row.remove();
-                updateStats(LS.getOrders());
-                // Mostra mensagem de vazio se não sobrar nenhuma
-                if (!tbody.querySelector('tr[data-os-id]')) {
-                    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:3rem;color:var(--text-muted);">
-                        <div style="font-size:2rem;margin-bottom:.5rem;">📋</div>
-                        Nenhuma OS cadastrada. <a href="service_form.html" style="color:var(--primary);font-weight:600;">Criar primeira OS</a>
-                    </td></tr>`;
-                    updateStats([]);
-                }
-            }, 320);
-        }
-
-        showToast('🗑 OS #' + osId + ' excluída.', 'info');
-    };
+    // deleteOS é definida fora do initDashboard (escopo global)
+    // para evitar problemas de closure no celular
 
     function updateStats(orders) {
         const byStatus = (s) => orders.filter(o => o.status === s).length;
@@ -327,35 +416,149 @@ async function initDashboard() {
         if (el('stat-completed'))  el('stat-completed').textContent  = byStatus('completed');
     }
 
-    // 0. Sincroniza OS locais para Firebase (recupera OS antigas não enviadas)
-    setTimeout(() => syncLocalToFirebase(), 2000);
-
-    // 1. Mostra local imediatamente (resposta rápida)
+    // 1. Mostra cache local imediatamente (resposta visual rápida)
     renderOrders(LS.getOrders());
 
-    // 2. Busca Firebase e atualiza — Firebase é fonte de verdade para STATUS
-    //    (o cliente aprova/recusa pelo Netlify, não pelo computador do técnico)
+    // 2. onSnapshot — escuta mudanças em TEMPO REAL no Firebase
+    //    Quando qualquer dispositivo exclui/cria/altera uma OS no Firebase,
+    //    TODOS os outros dispositivos com o dashboard aberto atualizam automaticamente.
     if (db) {
-        db.collection('orders').get()
-            .then(snap => {
-                if (snap.empty) return;
-                // Reconstrói lista com dados do Firebase (status atualizado pelo cliente)
-                const remote = snap.docs.map(d => ({ ...d.data(), _fbDocId: d.id }));
-                // Merge: Firebase sobrescreve local (status é atualizado pelo cliente via Netlify)
-                const local = LS.getOrders();
-                const map = {};
-                local.forEach(o  => { map[String(o.id)] = o; });
-                remote.forEach(o => { map[String(o.id)] = { ...map[String(o.id)], ...o }; }); // remote sobrescreve status
-                const merged = Object.values(map);
-                LS.saveOrders(merged);
-                renderOrders(merged);
-            })
-            .catch(e => {
-                console.warn('Dashboard Firebase sync:', e.message);
-                // Se falhar, usa local mesmo
-            });
+        db.collection('orders').onSnapshot(snap => {
+            // Firebase retorna exatamente o que existe na nuvem agora
+            // Se o celular excluiu → snap.docs não terá essa OS → PC remove também
+            const fromFirebase = snap.docs.map(d => d.data());
+
+            // Filtra apenas OS que este dispositivo excluiu localmente
+            // (evita race condition: excluiu localmente mas Firebase ainda não processou)
+            var localDeleted = [];
+            try { localDeleted = JSON.parse(localStorage.getItem('rsp_deleted_ids')) || []; } catch(e) {}
+            const toShow = fromFirebase.filter(o => localDeleted.indexOf(String(o.id)) === -1);
+
+            // ─── AUTORITATIVO: substitui localStorage completamente pelo Firebase ───
+            // Isso garante que exclusão feita no celular remove do PC também
+            localStorage.setItem('rsp_orders', JSON.stringify(toShow));
+
+            renderOrders(toShow);
+            console.log('🔴 onSnapshot: ' + toShow.length + ' OS · Firebase → PC sincronizado');
+
+        }, err => {
+            console.warn('⚠️ onSnapshot erro:', err.message);
+            // Fallback sem tempo real
+            db.collection('orders').get()
+                .then(s => { const o = s.docs.map(d => d.data()); LS.saveOrders(o); renderOrders(o); })
+                .catch(() => {});
+        });
+    }
+
+    // 3. Sobe OS locais que ainda não estão no Firebase (apenas novas, nunca re-sobe deletadas)
+    setTimeout(() => _uploadLocalOnlyOrders(), 3000);
+}
+
+// Sobe para o Firebase apenas OS que existem no local mas NÃO no Firebase
+// Nunca re-sobe OS que foram deletadas em outro dispositivo
+async function _uploadLocalOnlyOrders() {
+    if (!db) return;
+    var localDeleted = [];
+    try { localDeleted = JSON.parse(localStorage.getItem('rsp_deleted_ids')) || []; } catch(e) {}
+
+    const local = LS.getOrders();
+    if (!local.length) return;
+
+    try {
+        const snap = await db.collection('orders').get();
+        const remoteIds = new Set(snap.docs.map(d => d.id));
+
+        for (const o of local) {
+            const id = String(o.id);
+            // Só sobe se: não está no Firebase E não foi deletada
+            if (!remoteIds.has(id) && localDeleted.indexOf(id) === -1) {
+                try {
+                    await db.collection('orders').doc(id).set(o);
+                    console.log('⬆️ OS #' + id + ' enviada ao Firebase');
+                } catch(e) {
+                    console.warn('⬆️ Falha OS #' + id + ':', e.message);
+                }
+            }
+        }
+    } catch(e) {
+        console.warn('_uploadLocalOnlyOrders:', e.message);
     }
 }
+
+// ─── Delete OS (global — acessível pelo onclick inline em qualquer contexto) ─
+window.deleteOS = function(osId, btn) {
+    // Confirma exclusão
+    const orders = LS.getOrders();
+    const os = orders.find(function(o) { return String(o.id) === String(osId); });
+    const nome = os ? (os.clientName || 'Cliente') : 'OS #' + osId;
+    const cat  = os ? (os.category  || '-')        : '-';
+
+    if (!confirm('Excluir OS #' + osId + ' — ' + nome + ' (' + cat + ')?')) return;
+
+    // Feedback visual imediato
+    btn.disabled    = true;
+    btn.textContent = '⏳';
+
+    // 1. Marca como deletada (impede sync de restaurar)
+    var deleted = [];
+    try { deleted = JSON.parse(localStorage.getItem('rsp_deleted_ids')) || []; } catch(e) {}
+    if (deleted.indexOf(String(osId)) === -1) { deleted.push(String(osId)); }
+    localStorage.setItem('rsp_deleted_ids', JSON.stringify(deleted));
+
+    // 2. Remove do localStorage
+    var kept = orders.filter(function(o) { return String(o.id) !== String(osId); });
+    localStorage.setItem('rsp_orders', JSON.stringify(kept));
+
+    // 3. Remove linha da tabela
+    var tr = btn.closest('tr');
+    if (tr) {
+        tr.style.transition = 'opacity .3s, transform .3s';
+        tr.style.opacity    = '0';
+        tr.style.transform  = 'translateX(30px)';
+        setTimeout(function() {
+            tr.remove();
+            // Atualiza contadores
+            var r = kept;
+            var pend = r.filter(function(o){return o.status==='pending'||o.status==='awaiting_approval';}).length;
+            var appr = r.filter(function(o){return o.status==='approved';}).length;
+            var comp = r.filter(function(o){return o.status==='completed';}).length;
+            var ep = document.getElementById('stat-pending');    if(ep) ep.textContent = pend;
+            var ea = document.getElementById('stat-inprogress'); if(ea) ea.textContent = appr;
+            var ec = document.getElementById('stat-completed');  if(ec) ec.textContent = comp;
+            // Tabela vazia
+            var tb = document.querySelector('#dashboard-table tbody');
+            if (tb && !tb.querySelector('tr[data-os-id]')) {
+                tb.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:3rem;color:#888;"><div style="font-size:2rem;">📋</div>Nenhuma OS cadastrada.</td></tr>';
+            }
+        }, 350);
+    }
+
+    showToast('🗑 OS #' + osId + ' excluída.', 'info');
+
+    // 4. Remove do Firebase — isso dispara o onSnapshot em TODOS os dispositivos
+    //    automaticamente, fazendo o dashboard atualizar em tempo real no PC e celular
+    if (db) {
+        var MAX_TRIES = 3, attempt = 0;
+        function tryDelete() {
+            attempt++;
+            db.collection('orders').doc(String(osId)).delete()
+                .then(function() {
+                    console.log('☁️ OS #' + osId + ' removida do Firebase (tentativa ' + attempt + ')');
+                })
+                .catch(function(e) {
+                    console.warn('Firebase delete tentativa ' + attempt + ':', e.message);
+                    if (attempt < MAX_TRIES) {
+                        setTimeout(tryDelete, 2000 * attempt); // retry com backoff
+                    } else {
+                        console.error('❌ Falha ao remover OS #' + osId + ' do Firebase após ' + MAX_TRIES + ' tentativas');
+                        showToast('⚠️ OS removida localmente. Sincronize para remover da nuvem.', 'error', 6000);
+                    }
+                });
+        }
+        tryDelete();
+    }
+};
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SERVICE FORM
@@ -539,32 +742,72 @@ async function initServiceForm() {
 
             isSaving = true;
             sendWABtn.disabled = true;
-            sendWABtn.textContent = '⏳ Preparando...';
 
-            // Salva OS no Firebase (aguarda confirmação)
-            sendWABtn.textContent = '⏳ Salvando OS...';
-            const saved = await persistOrder(buildOrder(currentOSId, 'awaiting_approval'));
-            persistClient({ name: name || 'Cliente', phone, address: '', email: '' });
+            const orderData = buildOrder(currentOSId, 'awaiting_approval');
 
-            if (!saved) {
-                // Firebase falhou — não envia WhatsApp pois o cliente não conseguirá ver
+            // ── Etapa 1: salva localStorage imediatamente ──────────────────
+            sendWABtn.textContent = '⏳ Salvando...';
+            const orders = LS.getOrders();
+            const idx = orders.findIndex(o => String(o.id) === String(currentOSId));
+            if (idx >= 0) orders[idx] = orderData; else orders.push(orderData);
+            LS.saveOrders(orders);
+
+            // ── Etapa 2: salva no Firebase com retry ───────────────────────
+            let firebaseSaved = false;
+            if (db) {
+                for (let tentativa = 1; tentativa <= 3; tentativa++) {
+                    sendWABtn.textContent = '⏳ Enviando para nuvem (' + tentativa + '/3)...';
+                    try {
+                        await db.collection('orders').doc(String(currentOSId)).set(orderData);
+                        firebaseSaved = true;
+                        console.log('☁️ OS #' + currentOSId + ' confirmada no Firebase (tentativa ' + tentativa + ')');
+                        break;
+                    } catch(e) {
+                        console.warn('Tentativa ' + tentativa + ' falhou:', e.code, e.message);
+                        if (tentativa < 3) await new Promise(r => setTimeout(r, 1500));
+                    }
+                }
+            }
+
+            // ── Etapa 3: verifica se realmente está no Firebase ────────────
+            if (firebaseSaved && db) {
+                try {
+                    const verify = await db.collection('orders').doc(String(currentOSId)).get();
+                    if (!verify.exists) {
+                        console.warn('⚠️ Verificação pós-save falhou — documento não encontrado');
+                        firebaseSaved = false;
+                    } else {
+                        console.log('✅ Verificação OK — OS confirmada no Firebase');
+                    }
+                } catch(e) { console.warn('Verificação Firebase:', e.message); }
+            }
+
+            if (!firebaseSaved) {
                 sendWABtn.disabled = false;
-                sendWABtn.textContent = 'Enviar Orçamento pelo WhatsApp';
+                sendWABtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg> Avançar para WhatsApp';
                 isSaving = false;
-                showToast('❌ O orçamento não foi salvo no Firebase. Verifique as regras em: console.firebase.google.com → Firestore → Regras', 'error', 10000);
+                showToast('❌ Não foi possível salvar na nuvem após 3 tentativas. Verifique sua internet e as regras do Firebase.', 'error', 10000);
                 return;
             }
+
+            // ── Etapa 4: salva cliente e monta mensagem ────────────────────
+            persistClient({ name: name || 'Cliente', phone, address: '', email: '' });
 
             const cleanPhone = phone.replace(/\D/g, '');
             const settings   = LS.getSettings();
 
-            // URL de aprovação — usa publicUrl configurada ou mostra aviso
             let approvalUrl;
-            const pubUrl = (settings.publicUrl || '').trim().replace(/\/+$/, '');
+            // Limpa a URL pública: remove barra final, remove qualquer página .html do final
+            // Ex: "https://rspsistema.vercel.app/login.html" → "https://rspsistema.vercel.app"
+            const pubUrlRaw = (settings.publicUrl || '').trim();
+            const pubUrl = pubUrlRaw
+                .replace(/\/+$/, '')          // remove barras no final
+                .replace(/\/[^/]+\.html$/, ''); // remove /qualquer-coisa.html do final
+
             if (pubUrl) {
                 approvalUrl = pubUrl + '/quote_approval.html?id=' + currentOSId;
             } else {
-                showToast('⚠️ Configure a URL Pública em Configurações para o cliente acessar o link!', 'error', 7000);
+                showToast('⚠️ Configure a URL Pública em Configurações!', 'error', 7000);
                 const base = window.location.href.substring(0, window.location.href.lastIndexOf('/'));
                 approvalUrl = base + '/quote_approval.html?id=' + currentOSId;
             }
@@ -573,8 +816,9 @@ async function initServiceForm() {
                 '\nOlá ' + (name || 'Cliente') + '! Segue o orçamento para o serviço de *' + category + '*.' +
                 '\n\nToque no link para visualizar e responder:\n👇\n' + approvalUrl;
 
-            window.open(`https://wa.me/55${cleanPhone}?text=${encodeURIComponent(msgText)}`, '_blank');
-            showToast('✅ OS salva! Abrindo WhatsApp...', 'success');
+            sendWABtn.textContent = '✅ Abrindo WhatsApp...';
+            window.open('https://wa.me/55' + cleanPhone + '?text=' + encodeURIComponent(msgText), '_blank');
+            showToast('✅ OS salva na nuvem! Abrindo WhatsApp...', 'success');
             setTimeout(() => location.href = 'index.html', 1500);
         });
     }
@@ -604,10 +848,10 @@ async function initClientsPage() {
         sorted.forEach((c, i) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><strong>${escHtml(c.name)}</strong></td>
-                <td><a href="https://wa.me/55${(c.phone||'').replace(/\D/g,'')}" target="_blank"
+                <td data-label="Nome"><strong>${escHtml(c.name)}</strong></td>
+                <td data-label="WhatsApp"><a href="https://wa.me/55${(c.phone||'').replace(/\D/g,'')}" target="_blank"
                     style="color:var(--whatsapp);text-decoration:none;font-weight:500;">📱 ${escHtml(c.phone)}</a></td>
-                <td style="color:var(--text-muted);font-size:.88rem;">${escHtml(c.address || '-')}</td>
+                <td data-label="Endereço" style="color:var(--text-muted);font-size:.88rem;">${escHtml(c.address || '-')}</td>
                 <td style="color:var(--text-muted);font-size:.88rem;">${escHtml(c.email   || '-')}</td>
                 <td><button class="btn btn-sm btn-outline" style="color:var(--danger);border-color:var(--danger);"
                     onclick="deleteClientByIndex(${i})">Excluir</button></td>`;
@@ -692,46 +936,420 @@ async function initClientsPage() {
 // REPORTS
 // ═══════════════════════════════════════════════════════════════════════════
 async function initReports() {
+    function fmtVal(v) {
+        return 'R$ ' + (v || 0).toFixed(2).replace('.', ',');
+    }
+    function fmtDate(d) {
+        if (!d) return '-';
+        return new Date(d).toLocaleDateString('pt-BR');
+    }
+
+    function osItemHTML(o) {
+        return `<div class="os-item">
+            <div class="os-item-left">
+                <span class="os-id">OS #${o.id} · ${fmtDate(o.date)}</span>
+                <span class="os-name">${escHtml(o.clientName || 'Cliente')}</span>
+                <span class="os-cat">${escHtml(o.category || '-')}</span>
+                ${o.description ? `<span style="font-size:.78rem;color:var(--text-muted);margin-top:.1rem;">${escHtml(o.description.substring(0,80))}${o.description.length>80?'…':''}</span>` : ''}
+            </div>
+            <div class="os-item-right">
+                <div class="os-value">${fmtVal(o.value)}</div>
+                <div class="os-date">${statusBadge(o.status)}</div>
+                <div style="margin-top:.4rem;">
+                    <a href="service_form.html?id=${o.id}" class="btn btn-sm btn-outline"
+                       onclick="event.stopPropagation()" style="font-size:.72rem;padding:.25rem .6rem;">Ver OS</a>
+                </div>
+            </div>
+        </div>`;
+    }
+
     function render(orders) {
-        let revenue = 0, approved = 0, rejected = 0;
+        const el = id => document.getElementById(id);
+
+        // ── Cálculos ──
+        const revenueOrders  = orders.filter(o => o.status === 'completed' || o.status === 'approved');
+        const approvedOrders = orders.filter(o => o.status === 'completed' || o.status === 'approved');
+        const rejectedOrders = orders.filter(o => o.status === 'rejected');
+        const revenue  = revenueOrders.reduce((s, o) => s + (o.value || 0), 0);
+        const approved = approvedOrders.length;
+        const rejected = rejectedOrders.length;
+        const total    = approved + rejected;
+        const convPct  = total ? ((approved / total) * 100).toFixed(1) : '0';
+
+        // ── Cabeçalhos ──
+        if (el('report-revenue'))    el('report-revenue').textContent    = fmtVal(revenue);
+        if (el('report-approved'))   el('report-approved').textContent   = approved;
+        if (el('report-rejected'))   el('report-rejected').textContent   = rejected;
+        if (el('report-conversion')) el('report-conversion').textContent = convPct + '%';
+
+        // ── Painel Faturamento ──
+        if (el('detail-revenue')) {
+            if (!revenueOrders.length) {
+                el('detail-revenue').innerHTML = '<div class="panel-empty">Nenhuma OS aprovada ou concluída ainda.</div>';
+            } else {
+                const sorted = [...revenueOrders].sort((a,b) => (b.value||0)-(a.value||0));
+                el('detail-revenue').innerHTML =
+                    sorted.map(osItemHTML).join('') +
+                    `<div class="panel-total">
+                        <span>Total (${sorted.length} OS)</span>
+                        <span style="color:var(--secondary);">${fmtVal(revenue)}</span>
+                    </div>`;
+            }
+        }
+
+        // ── Painel Aprovadas ──
+        if (el('detail-approved')) {
+            if (!approvedOrders.length) {
+                el('detail-approved').innerHTML = '<div class="panel-empty">Nenhuma OS aprovada ainda.</div>';
+            } else {
+                const sorted = [...approvedOrders].sort((a,b) => new Date(b.date)-new Date(a.date));
+                el('detail-approved').innerHTML =
+                    sorted.map(osItemHTML).join('') +
+                    `<div class="panel-total">
+                        <span>${sorted.length} OS aprovada${sorted.length>1?'s':''}</span>
+                        <span style="color:var(--success);">${fmtVal(revenue)}</span>
+                    </div>`;
+            }
+        }
+
+        // ── Painel Recusadas ──
+        if (el('detail-rejected')) {
+            if (!rejectedOrders.length) {
+                el('detail-rejected').innerHTML = '<div class="panel-empty">Nenhuma OS recusada. 🎉</div>';
+            } else {
+                const sorted = [...rejectedOrders].sort((a,b) => new Date(b.date)-new Date(a.date));
+                const valorPerdido = sorted.reduce((s,o) => s+(o.value||0), 0);
+                el('detail-rejected').innerHTML =
+                    sorted.map(osItemHTML).join('') +
+                    `<div class="panel-total">
+                        <span>${sorted.length} OS recusada${sorted.length>1?'s':''}</span>
+                        <span style="color:var(--danger);">Perdido: ${fmtVal(valorPerdido)}</span>
+                    </div>`;
+            }
+        }
+
+        // ── Painel Conversão ──
+        if (el('detail-conversion')) {
+            const pendentes = orders.filter(o => o.status === 'pending' || o.status === 'awaiting_approval');
+            const valorPerdidoTotal = rejectedOrders.reduce((s,o) => s+(o.value||0), 0);
+
+            el('detail-conversion').innerHTML = `
+                <!-- 3 contadores empilhados verticalmente — sem corte em qualquer tela -->
+                <div style="display:flex;flex-direction:column;gap:.6rem;margin-bottom:1.25rem;">
+
+                    <div style="display:flex;align-items:center;justify-content:space-between;
+                                padding:.75rem 1rem;background:var(--success-bg);
+                                border-radius:var(--radius);border:1px solid #c8e6c9;">
+                        <div style="display:flex;align-items:center;gap:.6rem;">
+                            <span style="font-size:1.3rem;">✅</span>
+                            <span style="font-size:.8rem;font-weight:700;color:var(--success);text-transform:uppercase;letter-spacing:.5px;">Aprovadas</span>
+                        </div>
+                        <span style="font-size:1.8rem;font-weight:800;color:var(--success);line-height:1;">${approved}</span>
+                    </div>
+
+                    <div style="display:flex;align-items:center;justify-content:space-between;
+                                padding:.75rem 1rem;background:var(--danger-bg);
+                                border-radius:var(--radius);border:1px solid #ffcdd2;">
+                        <div style="display:flex;align-items:center;gap:.6rem;">
+                            <span style="font-size:1.3rem;">❌</span>
+                            <span style="font-size:.8rem;font-weight:700;color:var(--danger);text-transform:uppercase;letter-spacing:.5px;">Recusadas</span>
+                        </div>
+                        <span style="font-size:1.8rem;font-weight:800;color:var(--danger);line-height:1;">${rejected}</span>
+                    </div>
+
+                    <div style="display:flex;align-items:center;justify-content:space-between;
+                                padding:.75rem 1rem;background:var(--warning-bg);
+                                border-radius:var(--radius);border:1px solid #ffe0b2;">
+                        <div style="display:flex;align-items:center;gap:.6rem;">
+                            <span style="font-size:1.3rem;">⏳</span>
+                            <span style="font-size:.8rem;font-weight:700;color:var(--warning);text-transform:uppercase;letter-spacing:.5px;">Pendentes</span>
+                        </div>
+                        <span style="font-size:1.8rem;font-weight:800;color:var(--warning);line-height:1;">${pendentes.length}</span>
+                    </div>
+
+                </div>
+
+                <!-- Barra de progresso -->
+                <div style="background:var(--surface);border-radius:var(--radius);padding:1rem;margin-bottom:1rem;border:1px solid var(--border);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;">
+                        <span style="font-size:.82rem;font-weight:700;color:var(--success);">Taxa de aprovação</span>
+                        <span style="font-size:1.1rem;font-weight:800;color:var(--primary);">${convPct}%</span>
+                    </div>
+                    <div style="height:12px;background:var(--border);border-radius:6px;overflow:hidden;">
+                        <div style="height:100%;width:${convPct}%;
+                             background:linear-gradient(90deg,var(--success),#66bb6a);
+                             border-radius:6px;transition:width .6s ease;"></div>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;margin-top:.4rem;font-size:.7rem;color:var(--text-muted);">
+                        <span>0%</span><span>50%</span><span>100%</span>
+                    </div>
+                </div>
+
+                <!-- Resumo textual -->
+                ${total === 0
+                    ? '<div class="panel-empty">Sem dados suficientes ainda.</div>'
+                    : `<div style="font-size:.84rem;color:var(--text-secondary);line-height:2;background:var(--surface);
+                                  padding:.85rem 1rem;border-radius:var(--radius);border:1px solid var(--border);">
+                        📊 <strong>${total}</strong> orçamentos respondidos<br>
+                        ✅ <strong>${approved}</strong> aprovados &nbsp;|&nbsp; ❌ <strong>${rejected}</strong> recusados<br>
+                        💰 Faturamento: <strong style="color:var(--secondary);">${fmtVal(revenue)}</strong><br>
+                        ${valorPerdidoTotal > 0 ? `❌ Valor perdido: <strong style="color:var(--danger);">${fmtVal(valorPerdidoTotal)}</strong>` : '🎯 Sem valor perdido em recusas!'}
+                       </div>`
+                }`;
+        }
+
+        // ── Categorias ──
         const cats = {};
         orders.forEach(o => {
-            if (o.status === 'completed' || o.status === 'approved') { revenue += (o.value || 0); approved++; }
-            else if (o.status === 'rejected') rejected++;
             if (o.category && o.category !== 'Selecione...' && o.category !== '') {
-                cats[o.category] = (cats[o.category] || 0) + 1;
+                if (!cats[o.category]) cats[o.category] = { total:0, approved:0, revenue:0 };
+                cats[o.category].total++;
+                if (o.status === 'approved' || o.status === 'completed') {
+                    cats[o.category].approved++;
+                    cats[o.category].revenue += (o.value||0);
+                }
             }
         });
-        const el = id => document.getElementById(id);
-        if (el('report-revenue'))    el('report-revenue').textContent = `R$ ${revenue.toFixed(2).replace('.', ',')}`;
-        if (el('report-total-os'))   el('report-total-os').textContent = orders.length;
-        if (el('report-approved'))   el('report-approved').textContent = approved;
-        if (el('report-rejected'))   el('report-rejected').textContent = rejected;
-        const total = approved + rejected;
-        if (el('report-conversion')) el('report-conversion').textContent = total ? `${((approved/total)*100).toFixed(1)}%` : '0%';
-        const catTb = document.querySelector('#report-categories-table tbody');
-        if (catTb) {
-            const entries = Object.entries(cats).sort((a,b) => b[1]-a[1]);
-            catTb.innerHTML = entries.length
-                ? entries.map(([c,n]) => `<tr><td>${c}</td><td><strong>${n}</strong></td></tr>`).join('')
-                : '<tr><td colspan="2" style="text-align:center;color:var(--text-muted);">Nenhum dado ainda.</td></tr>';
+        const catEl = el('categories-detail');
+        if (catEl) {
+            const entries = Object.entries(cats).sort((a,b) => b[1].total - a[1].total);
+            const maxCount = entries.length ? entries[0][1].total : 1;
+            if (!entries.length) {
+                catEl.innerHTML = '<div class="panel-empty">Nenhum dado ainda.</div>';
+            } else {
+                catEl.innerHTML = entries.map(([cat, data]) => `
+                    <div class="cat-row">
+                        <span style="font-weight:600;font-size:.88rem;min-width:90px;">${escHtml(cat)}</span>
+                        <div class="cat-bar-wrap">
+                            <div class="cat-bar" style="width:${Math.round((data.total/maxCount)*100)}%;"></div>
+                        </div>
+                        <div style="text-align:right;min-width:80px;">
+                            <span class="cat-count">${data.total}</span>
+                            <div style="font-size:.68rem;color:var(--text-muted);">${fmtVal(data.revenue)}</div>
+                        </div>
+                    </div>`).join('');
+            }
         }
     }
+
     render(LS.getOrders());
     loadAllOrders().then(render);
+
+    // Escuta mudanças em tempo real (excluir OS no celular atualiza relatórios no PC)
+    if (db) {
+        db.collection('orders').onSnapshot(snap => {
+            var deletedIds = [];
+            try { deletedIds = JSON.parse(localStorage.getItem('rsp_deleted_ids')) || []; } catch(e) {}
+            const orders = snap.docs.map(d => d.data())
+                .filter(o => deletedIds.indexOf(String(o.id)) === -1);
+            LS.saveOrders(orders);
+            render(orders);
+        }, () => {});
+    }
 }
 
-window.exportReportToPDF = function () {
-    const el  = document.getElementById('pdf-content');
-    const hdr = document.getElementById('pdf-header');
-    if (hdr) hdr.style.display = 'block';
-    html2pdf().set({
-        margin: 0.5,
-        filename: `Relatorio_RSP_${new Date().toISOString().split('T')[0]}.pdf`,
-        image: { type:'jpeg', quality:0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit:'in', format:'letter', orientation:'portrait' }
-    }).from(el).save().then(() => { if (hdr) hdr.style.display = 'none'; });
+window.exportReportToPDF = async function () {
+    if (typeof html2pdf === 'undefined') {
+        showToast('❌ Biblioteca de PDF não carregou.', 'error', 5000);
+        return;
+    }
+    const btn = document.getElementById('btn-export-pdf');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Gerando PDF...'; }
+
+    try {
+        const orders   = await loadAllOrders();
+        const settings = LS.getSettings();
+
+        // ── Helpers ──────────────────────────────────────────────────────────
+        function fv(v)  { return 'R$ ' + (v||0).toFixed(2).replace('.',','); }
+        function fd(d)  { return d ? new Date(d).toLocaleDateString('pt-BR') : '-'; }
+        function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+        function statusLabel(s) {
+            const m = { pending:'Pendente', awaiting_approval:'Aguardando', approved:'Aprovado', rejected:'Recusado', completed:'Concluído' };
+            return m[s] || s;
+        }
+        function statusColor(s) {
+            const m = { approved:'#2e7d32', completed:'#1565c0', rejected:'#c62828', pending:'#e65100', awaiting_approval:'#e65100' };
+            return m[s] || '#555';
+        }
+
+        // ── Cálculos ─────────────────────────────────────────────────────────
+        const revenueOrders  = orders.filter(o => o.status==='completed' || o.status==='approved');
+        const approvedOrders = revenueOrders;
+        const rejectedOrders = orders.filter(o => o.status==='rejected');
+        const pendOrders     = orders.filter(o => o.status==='pending' || o.status==='awaiting_approval');
+        const revenue        = revenueOrders.reduce((s,o)=>s+(o.value||0),0);
+        const valorPerdido   = rejectedOrders.reduce((s,o)=>s+(o.value||0),0);
+        const approved       = approvedOrders.length;
+        const rejected       = rejectedOrders.length;
+        const total          = approved + rejected;
+        const convPct        = total ? ((approved/total)*100).toFixed(1) : '0.0';
+
+        // ── Categorias ───────────────────────────────────────────────────────
+        const cats = {};
+        orders.forEach(o => {
+            if (!o.category || o.category==='Selecione...') return;
+            if (!cats[o.category]) cats[o.category] = { total:0, approved:0, rejected:0, revenue:0, perdido:0 };
+            cats[o.category].total++;
+            if (o.status==='approved'||o.status==='completed') { cats[o.category].approved++; cats[o.category].revenue+=(o.value||0); }
+            if (o.status==='rejected') { cats[o.category].rejected++; cats[o.category].perdido+=(o.value||0); }
+        });
+        const catEntries = Object.entries(cats).sort((a,b)=>b[1].total-a[1].total);
+
+        // ── Linha de OS para tabelas ──────────────────────────────────────────
+        function osRow(o, rowBg) {
+            return `<tr style="background:${rowBg};">
+                <td style="padding:7px 10px;border-bottom:1px solid #eee;font-weight:700;color:#333;white-space:nowrap;">#${o.id}</td>
+                <td style="padding:7px 10px;border-bottom:1px solid #eee;">${esc(o.clientName||'Cliente')}</td>
+                <td style="padding:7px 10px;border-bottom:1px solid #eee;color:#888;font-size:.82em;">${esc(o.category||'-')}</td>
+                <td style="padding:7px 10px;border-bottom:1px solid #eee;color:#888;font-size:.82em;">${fd(o.date)}</td>
+                <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:.8em;color:${statusColor(o.status)};font-weight:700;">${statusLabel(o.status)}</td>
+                <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:#7b3e19;">${fv(o.value)}</td>
+                <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:.75em;color:#888;max-width:150px;">${esc((o.description||'').substring(0,60))}${(o.description||'').length>60?'…':''}</td>
+            </tr>`;
+        }
+
+        function osTable(list, emptyMsg) {
+            if (!list.length) return `<p style="color:#888;font-style:italic;padding:8px 0;">${emptyMsg}</p>`;
+            const rows = list.sort((a,b)=>new Date(b.date)-new Date(a.date))
+                .map((o,i)=>osRow(o, i%2===0?'#fff':'#fafaf8')).join('');
+            return `<table style="width:100%;border-collapse:collapse;font-size:.85em;">
+                <thead><tr style="background:#f5f0eb;">
+                    <th style="padding:7px 10px;text-align:left;font-size:.72em;color:#9a958e;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #e2e0da;">OS #</th>
+                    <th style="padding:7px 10px;text-align:left;font-size:.72em;color:#9a958e;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #e2e0da;">Cliente</th>
+                    <th style="padding:7px 10px;text-align:left;font-size:.72em;color:#9a958e;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #e2e0da;">Categoria</th>
+                    <th style="padding:7px 10px;text-align:left;font-size:.72em;color:#9a958e;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #e2e0da;">Data</th>
+                    <th style="padding:7px 10px;text-align:left;font-size:.72em;color:#9a958e;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #e2e0da;">Status</th>
+                    <th style="padding:7px 10px;text-align:right;font-size:.72em;color:#9a958e;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #e2e0da;">Valor</th>
+                    <th style="padding:7px 10px;text-align:left;font-size:.72em;color:#9a958e;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #e2e0da;">Descrição</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table>`;
+        }
+
+        function section(title, color, content) {
+            return `<div style="margin-bottom:28px;page-break-inside:avoid;">
+                <div style="background:${color}18;border-left:4px solid ${color};padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:10px;">
+                    <h3 style="margin:0;color:${color};font-size:1em;font-family:sans-serif;">${title}</h3>
+                </div>
+                ${content}
+            </div>`;
+        }
+
+        // ── HTML do PDF ───────────────────────────────────────────────────────
+        const html = `
+        <div style="font-family:'DM Sans',Arial,sans-serif;color:#1a1814;padding:20px;max-width:750px;margin:0 auto;">
+
+            <!-- Cabeçalho -->
+            <div style="text-align:center;padding-bottom:20px;border-bottom:3px solid #d36e2d;margin-bottom:24px;">
+                <h1 style="margin:0;font-size:1.5em;color:#d36e2d;text-transform:uppercase;letter-spacing:2px;">${esc(settings.companyName||'RSP PRESTAÇÃO DE SERVIÇOS')}</h1>
+                <p style="margin:4px 0 0;color:#7b3e19;font-weight:600;">Relatório Completo de Desempenho</p>
+                <p style="margin:4px 0 0;font-size:.82em;color:#9a958e;">Gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</p>
+            </div>
+
+            <!-- Resumo executivo -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:28px;">
+                <div style="background:#fff8f3;border:1px solid #f5e6d8;border-radius:10px;padding:14px;text-align:center;">
+                    <div style="font-size:.65em;color:#9a958e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Faturamento</div>
+                    <div style="font-size:1.1em;font-weight:800;color:#7b3e19;">${fv(revenue)}</div>
+                </div>
+                <div style="background:#f1f8f2;border:1px solid #c8e6c9;border-radius:10px;padding:14px;text-align:center;">
+                    <div style="font-size:.65em;color:#9a958e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Aprovadas</div>
+                    <div style="font-size:1.5em;font-weight:800;color:#2e7d32;">${approved}</div>
+                </div>
+                <div style="background:#fff5f5;border:1px solid #ffcdd2;border-radius:10px;padding:14px;text-align:center;">
+                    <div style="font-size:.65em;color:#9a958e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Recusadas</div>
+                    <div style="font-size:1.5em;font-weight:800;color:#c62828;">${rejected}</div>
+                </div>
+                <div style="background:#fff8e1;border:1px solid #ffe0b2;border-radius:10px;padding:14px;text-align:center;">
+                    <div style="font-size:.65em;color:#9a958e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Conversão</div>
+                    <div style="font-size:1.3em;font-weight:800;color:#d36e2d;">${convPct}%</div>
+                </div>
+            </div>
+
+            <!-- 1. Faturamento -->
+            ${section('💰 Faturamento — OS Aprovadas e Concluídas (' + approved + ' OS · ' + fv(revenue) + ')', '#2e7d32',
+                osTable(approvedOrders, 'Nenhuma OS aprovada ainda.')
+                + (approved > 0 ? `<div style="text-align:right;padding:8px 10px;background:#f1f8f2;border-radius:6px;margin-top:4px;font-weight:700;color:#2e7d32;">Total: ${fv(revenue)}</div>` : '')
+            )}
+
+            <!-- 2. Recusadas -->
+            ${section('❌ OS Recusadas (' + rejected + ' OS · Perdido: ' + fv(valorPerdido) + ')', '#c62828',
+                osTable(rejectedOrders, 'Nenhuma OS recusada. 🎉')
+                + (rejected > 0 ? `<div style="text-align:right;padding:8px 10px;background:#fff5f5;border-radius:6px;margin-top:4px;font-weight:700;color:#c62828;">Valor total perdido: ${fv(valorPerdido)}</div>` : '')
+            )}
+
+            <!-- 3. Pendentes -->
+            ${section('⏳ OS Pendentes / Aguardando Resposta (' + pendOrders.length + ')', '#e65100',
+                osTable(pendOrders, 'Nenhuma OS pendente.')
+            )}
+
+            <!-- 4. Todas as OS -->
+            ${section('📋 Todas as Ordens de Serviço (' + orders.length + ' no total)', '#1565c0',
+                osTable(orders, 'Nenhuma OS cadastrada.')
+            )}
+
+            <!-- 5. Categorias -->
+            <div style="margin-bottom:28px;page-break-inside:avoid;">
+                <div style="background:#f5f0eb;border-left:4px solid #d36e2d;padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:10px;">
+                    <h3 style="margin:0;color:#d36e2d;font-size:1em;font-family:sans-serif;">📊 Serviços por Categoria</h3>
+                </div>
+                ${catEntries.length === 0
+                    ? '<p style="color:#888;font-style:italic;">Nenhum dado.</p>'
+                    : `<table style="width:100%;border-collapse:collapse;font-size:.85em;">
+                        <thead><tr style="background:#f5f0eb;">
+                            <th style="padding:7px 10px;text-align:left;font-size:.72em;color:#9a958e;text-transform:uppercase;border-bottom:2px solid #e2e0da;">Categoria</th>
+                            <th style="padding:7px 10px;text-align:center;font-size:.72em;color:#9a958e;text-transform:uppercase;border-bottom:2px solid #e2e0da;">Total</th>
+                            <th style="padding:7px 10px;text-align:center;font-size:.72em;color:#2e7d32;text-transform:uppercase;border-bottom:2px solid #e2e0da;">Aprovadas</th>
+                            <th style="padding:7px 10px;text-align:center;font-size:.72em;color:#c62828;text-transform:uppercase;border-bottom:2px solid #e2e0da;">Recusadas</th>
+                            <th style="padding:7px 10px;text-align:right;font-size:.72em;color:#9a958e;text-transform:uppercase;border-bottom:2px solid #e2e0da;">Faturado</th>
+                            <th style="padding:7px 10px;text-align:right;font-size:.72em;color:#c62828;text-transform:uppercase;border-bottom:2px solid #e2e0da;">Perdido</th>
+                        </tr></thead>
+                        <tbody>${catEntries.map(([cat,d],i)=>`
+                            <tr style="background:${i%2===0?'#fff':'#fafaf8'};">
+                                <td style="padding:7px 10px;border-bottom:1px solid #eee;font-weight:600;">${esc(cat)}</td>
+                                <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:center;font-weight:700;">${d.total}</td>
+                                <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:center;color:#2e7d32;font-weight:700;">${d.approved}</td>
+                                <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:center;color:#c62828;font-weight:700;">${d.rejected}</td>
+                                <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:#7b3e19;">${fv(d.revenue)}</td>
+                                <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:right;color:#c62828;">${d.perdido>0?fv(d.perdido):'-'}</td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>`
+                }
+            </div>
+
+            <!-- Rodapé -->
+            <div style="border-top:2px solid #e2e0da;padding-top:14px;text-align:center;color:#9a958e;font-size:.75em;">
+                ${esc(settings.companyName||'RSP')} · ${esc(settings.owner||'')} · ${esc(settings.phone||'')}
+                &nbsp;·&nbsp; Relatório gerado automaticamente pelo sistema RSP
+            </div>
+
+        </div>`;
+
+        // ── Cria elemento temporário e gera PDF ───────────────────────────────
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        document.body.appendChild(wrapper);
+
+        const filename = 'Relatorio_RSP_' + new Date().toISOString().split('T')[0] + '.pdf';
+        await html2pdf().set({
+            margin:      [0.4, 0.4, 0.4, 0.4],
+            filename:    filename,
+            image:       { type: 'jpeg', quality: 0.97 },
+            html2canvas: { scale: 2, useCORS: true, logging: false },
+            jsPDF:       { unit: 'in', format: 'a4', orientation: 'portrait' }
+        }).from(wrapper).save();
+
+        document.body.removeChild(wrapper);
+        showToast('✅ PDF gerado com sucesso!', 'success');
+
+    } catch(e) {
+        console.error('PDF error:', e);
+        showToast('❌ Erro ao gerar PDF: ' + e.message, 'error', 6000);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '📄 Exportar PDF'; }
+    }
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -750,12 +1368,21 @@ function initConfigPage() {
     form.addEventListener('submit', e => {
         e.preventDefault();
         const pubUrl = document.getElementById('config-public-url');
+        // Limpa a URL antes de salvar: remove barra final e qualquer .html do final
+        const rawUrl = pubUrl ? pubUrl.value.trim() : '';
+        const cleanUrl = rawUrl
+            .replace(/\/+$/, '')
+            .replace(/\/[^/]+\.html$/, '');
+
         LS.saveSettings({
             companyName: document.getElementById('config-company-name').value.trim(),
             owner:       document.getElementById('config-owner').value.trim(),
             phone:       document.getElementById('config-phone').value.trim(),
-            publicUrl:   pubUrl ? pubUrl.value.trim() : '',
+            publicUrl:   cleanUrl,
         });
+
+        // Atualiza o campo com a URL limpa para o usuário ver
+        if (pubUrl) pubUrl.value = cleanUrl;
         showToast('✅ Configurações salvas!', 'success');
     });
 }
