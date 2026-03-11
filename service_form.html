@@ -136,8 +136,9 @@
     </div>
 </div>
 
+<script src="darkmode.js"></script>
 <script src="auth.js"></script>
- src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="app.js"></script>
 
@@ -145,6 +146,34 @@
     document.addEventListener('DOMContentLoaded', () => {
         if (window.RSPAuth) window.RSPAuth.injectLogoutButton();
     });
+</script>
+
+<!-- Bottom Navigation — mobile only -->
+<nav class="bottom-nav">
+    <a href="index.html" data-page="index">
+        <span class="nav-icon">🏠</span>Dashboard
+    </a>
+    <a href="service_form.html" data-page="service_form">
+        <span class="nav-icon">➕</span>Nova OS
+    </a>
+    <a href="clientes.html" data-page="clientes">
+        <span class="nav-icon">👥</span>Clientes
+    </a>
+    <a href="reports.html" data-page="reports">
+        <span class="nav-icon">📊</span>Relatórios
+    </a>
+    <a href="configuracoes.html" data-page="configuracoes">
+        <span class="nav-icon">⚙️</span>Config
+    </a>
+</nav>
+<script>
+(function(){
+    var page = location.pathname.split('/').pop().replace('.html','') || 'index';
+    var links = document.querySelectorAll('.bottom-nav a');
+    links.forEach(function(a){
+        if(a.dataset.page === page) a.classList.add('active');
+    });
+})();
 </script>
 </body>
 </html>

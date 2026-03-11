@@ -5,8 +5,161 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Relatórios | RSP Dashboard</title>
     <link rel="stylesheet" href="styles.css">
-    <script src="auth.js"></script>
- src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="darkmode.js"></script>
+<script src="auth.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        /* ── Metric Cards clicáveis ── */
+        .metric-card {
+            background: var(--surface-alt);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--primary);
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+            transition: box-shadow .22s, transform .22s;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .metric-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+        .metric-card.active { box-shadow: var(--shadow-lg); }
+
+        .metric-header {
+            padding: 1.4rem 1.5rem 1.2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            position: relative;
+            overflow: hidden;
+        }
+        .metric-header::after {
+            content: '';
+            position: absolute;
+            bottom: -20px; right: -20px;
+            width: 70px; height: 70px;
+            background: var(--primary-light);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .metric-info { flex: 1; }
+        .metric-label {
+            font-family: 'Syne', sans-serif;
+            font-size: .68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .8px;
+            color: var(--text-muted);
+            margin-bottom: .5rem;
+        }
+        .metric-value {
+            font-size: 2.4rem;
+            font-weight: 700;
+            line-height: 1;
+            color: var(--secondary);
+        }
+        .metric-sub {
+            font-size: .72rem;
+            color: var(--text-muted);
+            margin-top: .4rem;
+        }
+        .metric-chevron {
+            font-size: 1.1rem;
+            color: var(--text-muted);
+            transition: transform .25s;
+            z-index: 1;
+            align-self: center;
+            margin-left: .5rem;
+        }
+        .metric-card.active .metric-chevron { transform: rotate(180deg); }
+
+        /* ── Painel expansível ── */
+        .metric-panel {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height .35s cubic-bezier(.4,0,.2,1);
+            border-top: 0px solid var(--border);
+        }
+        .metric-card.active .metric-panel {
+            max-height: 1200px;
+            border-top-width: 1px;
+        }
+        .metric-panel-inner { padding: 1.25rem 1.5rem 1.5rem; }
+
+        /* ── OS linha dentro do painel ── */
+        .os-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: .75rem 0;
+            border-bottom: 1px solid var(--border);
+            gap: .75rem;
+            flex-wrap: wrap;
+        }
+        .os-item:last-child { border-bottom: none; padding-bottom: 0; }
+        .os-item-left { display: flex; flex-direction: column; gap: .2rem; }
+        .os-id { font-family: 'Syne', sans-serif; font-size: .72rem; color: var(--text-muted); }
+        .os-name { font-weight: 600; font-size: .9rem; color: var(--text); }
+        .os-cat {
+            display: inline-block;
+            background: var(--primary-light);
+            color: var(--primary-dark);
+            font-size: .72rem;
+            font-weight: 600;
+            padding: .15rem .5rem;
+            border-radius: 4px;
+        }
+        .os-item-right { text-align: right; flex-shrink: 0; }
+        .os-value { font-weight: 700; font-size: 1rem; color: var(--secondary); }
+        .os-date  { font-size: .72rem; color: var(--text-muted); margin-top: .1rem; }
+
+        .panel-empty {
+            text-align: center;
+            padding: 1.5rem;
+            color: var(--text-muted);
+            font-size: .88rem;
+        }
+
+        .panel-total {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: .75rem 0 0;
+            margin-top: .25rem;
+            border-top: 2px solid var(--border);
+            font-weight: 700;
+            font-size: .9rem;
+        }
+
+        /* ── Categorias ── */
+        .cat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: .6rem 0;
+            border-bottom: 1px solid var(--border);
+            gap: 1rem;
+        }
+        .cat-row:last-child { border-bottom: none; }
+        .cat-bar-wrap { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin: 0 .75rem; }
+        .cat-bar { height: 100%; background: var(--primary); border-radius: 3px; transition: width .5s ease; }
+        .cat-count { font-weight: 700; color: var(--primary); font-size: .9rem; width: 1.5rem; text-align: right; }
+
+        /* ── Click hint ── */
+        .click-hint {
+            font-size: .7rem;
+            color: var(--text-muted);
+            margin-top: .35rem;
+            display: flex;
+            align-items: center;
+            gap: .25rem;
+        }
+
+        @media (max-width: 640px) {
+            .metric-value { font-size: 1.9rem; }
+            .metric-header { padding: 1rem 1.1rem; }
+            .metric-panel-inner { padding: 1rem 1.1rem 1.25rem; }
+        }
+    </style>
 </head>
 <body>
 
@@ -18,64 +171,117 @@
         <a href="index.html">Dashboard</a>
         <a href="service_form.html">Nova OS</a>
         <a href="clientes.html">Clientes</a>
-        <a href="reports.html">Relatórios</a>
+        <a href="reports.html" class="active">Relatórios</a>
         <a href="configuracoes.html">Configurações</a>
     </div>
 </nav>
 
 <div class="container" id="reports-container">
+
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.75rem;flex-wrap:wrap;gap:1rem;">
-        <h2>Relatórios de Desempenho</h2>
-        <button class="btn btn-primary" onclick="exportReportToPDF()">📄 Exportar PDF</button>
+        <div>
+            <h2 style="margin-bottom:.2rem;">Relatórios de Desempenho</h2>
+            <p style="font-size:.82rem;color:var(--text-muted);">Clique em qualquer card para ver os detalhes</p>
+        </div>
+        <button class="btn btn-primary" id="btn-export-pdf" onclick="exportReportToPDF()">📄 Exportar PDF</button>
     </div>
 
     <div id="pdf-content">
         <div id="pdf-header" style="display:none;text-align:center;margin-bottom:2rem;">
             <h1 style="color:var(--primary);">RSP PRESTAÇÃO DE SERVIÇOS</h1>
             <h3>Relatório de Desempenho</h3>
-            <p id="pdf-date" style="color:var(--text-muted);"></p>
+            <p id="pdf-date"></p>
         </div>
 
-        <!-- Métricas -->
-        <div class="dashboard-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));">
-            <div class="stat-card">
-                <h3>Faturamento Total</h3>
-                <div class="value" id="report-revenue" style="font-size:1.8rem;">—</div>
-                <p style="font-size:.78rem;margin-top:.5rem;">Aprovados + Concluídos</p>
+        <!-- ── 4 metric cards ── -->
+        <div class="dashboard-grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));">
+
+            <!-- FATURAMENTO -->
+            <div class="metric-card" id="card-revenue" onclick="togglePanel('revenue')">
+                <div class="metric-header">
+                    <div class="metric-info">
+                        <div class="metric-label">Faturamento Total</div>
+                        <div class="metric-value" id="report-revenue">—</div>
+                        <div class="metric-sub">Aprovados + Concluídos</div>
+                        <div class="click-hint">👆 toque para ver detalhes</div>
+                    </div>
+                    <span class="metric-chevron">▼</span>
+                </div>
+                <div class="metric-panel" id="panel-revenue">
+                    <div class="metric-panel-inner" id="detail-revenue">
+                        <div class="panel-empty">Carregando...</div>
+                    </div>
+                </div>
             </div>
-            <div class="stat-card" style="border-left-color:var(--success);">
-                <h3>OS Aprovadas</h3>
-                <div class="value" style="color:var(--success);" id="report-approved">—</div>
+
+            <!-- OS APROVADAS -->
+            <div class="metric-card" id="card-approved" onclick="togglePanel('approved')"
+                 style="border-left-color:var(--success);">
+                <div class="metric-header" style="--card-circle:var(--success-bg);">
+                    <div class="metric-info">
+                        <div class="metric-label">OS Aprovadas</div>
+                        <div class="metric-value" style="color:var(--success);" id="report-approved">—</div>
+                        <div class="metric-sub">Aprovadas e Concluídas</div>
+                        <div class="click-hint">👆 toque para ver detalhes</div>
+                    </div>
+                    <span class="metric-chevron">▼</span>
+                </div>
+                <div class="metric-panel" id="panel-approved">
+                    <div class="metric-panel-inner" id="detail-approved">
+                        <div class="panel-empty">Carregando...</div>
+                    </div>
+                </div>
             </div>
-            <div class="stat-card" style="border-left-color:var(--danger);">
-                <h3>OS Recusadas</h3>
-                <div class="value" style="color:var(--danger);" id="report-rejected">—</div>
+
+            <!-- OS RECUSADAS -->
+            <div class="metric-card" id="card-rejected" onclick="togglePanel('rejected')"
+                 style="border-left-color:var(--danger);">
+                <div class="metric-header">
+                    <div class="metric-info">
+                        <div class="metric-label">OS Recusadas</div>
+                        <div class="metric-value" style="color:var(--danger);" id="report-rejected">—</div>
+                        <div class="metric-sub">Orçamentos não aceitos</div>
+                        <div class="click-hint">👆 toque para ver detalhes</div>
+                    </div>
+                    <span class="metric-chevron">▼</span>
+                </div>
+                <div class="metric-panel" id="panel-rejected">
+                    <div class="metric-panel-inner" id="detail-rejected">
+                        <div class="panel-empty">Carregando...</div>
+                    </div>
+                </div>
             </div>
-            <div class="stat-card" style="border-left-color:var(--primary);">
-                <h3>Taxa de Conversão</h3>
-                <div class="value" style="color:var(--primary);font-size:2rem;" id="report-conversion">—</div>
-                <p style="font-size:.78rem;margin-top:.5rem;">Aprovadas / (Aprovadas + Recusadas)</p>
+
+            <!-- TAXA DE CONVERSÃO -->
+            <div class="metric-card" id="card-conversion" onclick="togglePanel('conversion')"
+                 style="border-left-color:var(--primary);">
+                <div class="metric-header">
+                    <div class="metric-info">
+                        <div class="metric-label">Taxa de Conversão</div>
+                        <div class="metric-value" style="color:var(--primary);font-size:2rem;" id="report-conversion">—</div>
+                        <div class="metric-sub">Aprovadas ÷ (Aprovadas + Recusadas)</div>
+                        <div class="click-hint">👆 toque para ver detalhes</div>
+                    </div>
+                    <span class="metric-chevron">▼</span>
+                </div>
+                <div class="metric-panel" id="panel-conversion">
+                    <div class="metric-panel-inner" id="detail-conversion">
+                        <div class="panel-empty">Carregando...</div>
+                    </div>
+                </div>
             </div>
+
         </div>
 
-        <!-- Tabela por categoria -->
-        <div class="card" style="margin-top:1.5rem;">
+        <!-- ── Categorias ── -->
+        <div class="card" style="margin-top:.5rem;">
             <h3>Serviços por Categoria</h3>
-            <div class="table-container">
-                <table id="report-categories-table">
-                    <thead>
-                        <tr>
-                            <th>Categoria</th>
-                            <th>Qtd. de OS</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr><td colspan="2" style="text-align:center;color:var(--text-muted);padding:2rem;">Carregando...</td></tr>
-                    </tbody>
-                </table>
+            <div id="categories-detail" style="margin-top:1rem;">
+                <div class="panel-empty">Carregando...</div>
             </div>
         </div>
-    </div>
+
+    </div><!-- /pdf-content -->
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -84,12 +290,49 @@
 <script>
     const pdfDate = document.getElementById('pdf-date');
     if (pdfDate) pdfDate.textContent = 'Gerado em ' + new Date().toLocaleDateString('pt-BR');
-</script>
 
+    // Toggle painel expansível
+    window.togglePanel = function(key) {
+        var card  = document.getElementById('card-' + key);
+        var panel = document.getElementById('panel-' + key);
+        if (!card || !panel) return;
+        var isOpen = card.classList.contains('active');
+        // Fecha todos
+        ['revenue','approved','rejected','conversion'].forEach(function(k) {
+            var c = document.getElementById('card-' + k);
+            if (c) c.classList.remove('active');
+        });
+        // Abre o clicado (se estava fechado)
+        if (!isOpen) {
+            card.classList.add('active');
+            // Scroll suave para o card
+            setTimeout(function() {
+                card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 50);
+        }
+    };
+</script>
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', function() {
         if (window.RSPAuth) window.RSPAuth.injectLogoutButton();
     });
+</script>
+
+<!-- Bottom Navigation — mobile only -->
+<nav class="bottom-nav">
+    <a href="index.html" data-page="index"><span class="nav-icon">🏠</span>Dashboard</a>
+    <a href="service_form.html" data-page="service_form"><span class="nav-icon">➕</span>Nova OS</a>
+    <a href="clientes.html" data-page="clientes"><span class="nav-icon">👥</span>Clientes</a>
+    <a href="reports.html" data-page="reports"><span class="nav-icon">📊</span>Relatórios</a>
+    <a href="configuracoes.html" data-page="configuracoes"><span class="nav-icon">⚙️</span>Config</a>
+</nav>
+<script>
+(function(){
+    var page = location.pathname.split('/').pop().replace('.html','') || 'index';
+    document.querySelectorAll('.bottom-nav a').forEach(function(a){
+        if(a.dataset.page === page) a.classList.add('active');
+    });
+})();
 </script>
 </body>
 </html>
