@@ -1,243 +1,245 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Configurações | RSP Dashboard</title>
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
 
-<nav class="navbar">
-    <div class="brand">
-        <h1 class="brand-title">RSP <span style="color:var(--primary);">Serviços</span></h1>
-    </div>
-    <div class="nav-links">
-        <a href="index.html">Dashboard</a>
-        <a href="service_form.html">Nova OS</a>
-        <a href="clientes.html">Clientes</a>
-        <a href="reports.html">Relatórios</a>
-        <a href="configuracoes.html">Configurações</a>
-    </div>
-</nav>
+    <nav class="navbar">
+        <div class="brand">
+            <h1 class="brand-title">RSP <span style="color: var(--primary-color);">Serviços</span></h1>
+        </div>
+        <div class="nav-links">
+            <a href="index.html">Dashboard</a>
+            <a href="service_form.html">Nova OS</a>
+            <a href="clientes.html">Clientes</a>
+            <a href="reports.html">Relatórios</a>
+            <a href="configuracoes.html">Configurações</a>
+        </div>
+    </nav>
 
-<div class="container" id="config-container">
-    <h2 style="margin-bottom:1.75rem;">Configurações do Sistema</h2>
+    <div class="container" id="config-container">
+        <h2 style="margin-bottom: 2rem;">Configurações do Sistema</h2>
 
-    <div class="dashboard-grid" style="grid-template-columns:1fr 1fr;align-items:start;">
+        <div class="dashboard-grid" style="grid-template-columns: 1fr 1fr; align-items: start;">
 
-        <!-- Perfil da empresa -->
-        <div class="card">
-            <h3>Perfil da Empresa</h3>
-            <form id="config-form">
+            <!-- Perfil da Empresa -->
+            <div class="card">
+                <h3>Perfil da Empresa</h3>
+                <form id="config-form" style="margin-top: 1.5rem;">
+                    <div class="form-group">
+                        <label>Nome Fantasia</label>
+                        <input type="text" id="config-company-name" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Responsável</label>
+                        <input type="text" id="config-owner" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Telefone / WhatsApp</label>
+                        <input type="text" id="config-phone" class="form-control" required>
+                        <small style="color: var(--text-muted); font-size: 0.8rem;">Exibido na página de aprovação do cliente</small>
+                    </div>
 
-                <div class="form-group">
-                    <label>Nome Fantasia</label>
-                    <input type="text" id="config-company-name" class="form-control" required>
-                </div>
-                <div class="form-group">
-                    <label>Responsável</label>
-                    <input type="text" id="config-owner" class="form-control" required>
-                </div>
-                <div class="form-group">
-                    <label>Telefone / WhatsApp</label>
-                    <input type="text" id="config-phone" class="form-control" required>
-                    <p class="form-hint">Exibido na página de aprovação do cliente</p>
-                </div>
+                    <hr style="border: none; border-top: 1px dashed #ccc; margin: 1.5rem 0;">
 
-                <!-- ──────────────────────────────────────────────────────── -->
-                <!-- CAMPO CRÍTICO: URL pública do sistema                    -->
-                <!-- ──────────────────────────────────────────────────────── -->
-                <div class="form-group" style="border-top:2px dashed var(--border);padding-top:1.5rem;margin-top:.5rem;">
-                    <label style="color:var(--primary);font-weight:700;">
-                        🌐 URL Pública do Sistema
-                        <span style="background:var(--primary);color:white;font-size:.65rem;padding:.2rem .5rem;border-radius:4px;margin-left:.4rem;vertical-align:middle;">OBRIGATÓRIO</span>
-                    </label>
-                    <input type="url" id="config-public-url" class="form-control"
-                        placeholder="https://seusite.com.br" style="border-color:var(--primary);">
-                    <div style="margin-top:.75rem;padding:1rem;background:#fff3e0;border-radius:8px;border-left:3px solid var(--primary);font-size:.82rem;line-height:1.7;">
-                        <strong>⚠️ Por que isso é necessário?</strong><br>
-                        O link enviado no WhatsApp precisa de uma URL que o cliente consiga abrir no celular.
-                        Um caminho local <code style="background:#fde0c8;padding:.1rem .3rem;border-radius:3px;">file:///home/...</code>
-                        só funciona no seu computador.<br><br>
-                        <strong>Opções gratuitas para hospedar o sistema:</strong><br>
-                        &nbsp;•&nbsp;<a href="https://firebase.google.com/docs/hosting" target="_blank" style="color:var(--primary);font-weight:600;">Firebase Hosting</a> — recomendado (já usa Firebase)<br>
-                        &nbsp;•&nbsp;<a href="https://pages.github.com" target="_blank" style="color:var(--primary);font-weight:600;">GitHub Pages</a> — simples e gratuito<br>
-                        &nbsp;•&nbsp;<a href="https://netlify.com" target="_blank" style="color:var(--primary);font-weight:600;">Netlify</a> — arraste e solte a pasta<br><br>
-                        Após hospedar, cole aqui a URL gerada (ex: <code>https://rpssystem.web.app</code>).
+                    <!-- URL Pública -->
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 600;">
+                            🌐 URL Pública do Sistema
+                            <span style="background: #f97316; color: white; font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 999px; font-weight: 700; letter-spacing: 0.05em;">OBRIGATÓRIO</span>
+                        </label>
+                        <input type="url" id="config-public-url" class="form-control"
+                            value="https://rspsistema.vercel.app/quote_approval.html?id=XXXXX"
+                            placeholder="https://rspsistema.vercel.app"
+                            style="border-color: #f97316;">
+
+                        <div style="background: #fff8ed; border: 1px solid #f97316; border-radius: 8px; padding: 1rem; margin-top: 0.75rem; font-size: 0.85rem; color: #555;">
+                            <strong>⚠️ Por que isso é necessário?</strong><br>
+                            O link enviado no WhatsApp precisa de uma URL que o cliente consiga abrir no celular. Um caminho local <code style="background:#eee; padding:0.1rem 0.3rem; border-radius:4px;">file:///home/...</code> só funciona no seu computador.<br><br>
+                            <strong>Opções gratuitas para hospedar o sistema:</strong><br>
+                            • <a href="https://firebase.google.com/products/hosting" target="_blank" style="color: #f97316;">Firebase Hosting</a> — recomendado (já usa Firebase)<br>
+                            • <a href="https://pages.github.com/" target="_blank" style="color: #f97316;">GitHub Pages</a> — simples e gratuito<br>
+                            • <a href="https://www.netlify.com/" target="_blank" style="color: #f97316;">Netlify</a> — arraste e solte a pasta<br><br>
+                            Após hospedar, cole aqui a URL gerada (ex: <code>https://rpssystem.web.app</code>).
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+                        💾 Salvar Configurações
+                    </button>
+                </form>
+            </div>
+
+            <!-- Coluna direita -->
+            <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+
+                <!-- Status do Link WhatsApp -->
+                <div class="card">
+                    <h3>Status do Link WhatsApp</h3>
+                    <div id="url-status-box" style="margin-top: 1rem; border-radius: 8px; padding: 1rem;">
+                        <!-- Preenchido pelo JS -->
                     </div>
                 </div>
 
-                <button type="submit" class="btn btn-primary" style="width:100%;margin-top:1rem;">
-                    💾 Salvar Configurações
-                </button>
-            </form>
-        </div>
+                <!-- Aparência -->
+                <div class="card">
+                    <h3>Aparência</h3>
 
-        <!-- Coluna direita: status + ações -->
-        <div style="display:flex;flex-direction:column;gap:1.25rem;">
-
-            <!-- Status do link WhatsApp -->
-            <div class="card" style="height:fit-content;">
-                <h3>Status do Link WhatsApp</h3>
-                <div id="url-status-box" style="margin-top:1rem;"></div>
-            </div>
-
-            <!-- Aparência -->
-            <div class="card" style="height:fit-content;">
-                <h3>Aparência</h3>
-                <div style="margin-top:1rem;display:flex;flex-direction:column;gap:1rem;">
-
-                    <!-- Toggle dark mode grande -->
-                    <div style="padding:1.1rem 1rem;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);">
-                        <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.7px;color:var(--text-muted);margin-bottom:.75rem;">Tema</div>
-                        <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;">
+                    <div style="border: 1px solid #eee; border-radius: 8px; padding: 1rem; margin-top: 1rem;">
+                        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.3rem;">TEMA</div>
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
                             <div>
-                                <div style="font-weight:600;font-size:.92rem;" id="theme-label">Modo Claro</div>
-                                <div style="font-size:.75rem;color:var(--text-muted);margin-top:.15rem;">Toque para alternar</div>
+                                <strong id="theme-label">Modo Claro</strong><br>
+                                <small style="color: var(--text-muted);">Toque para alternar</small>
                             </div>
-                            <!-- Switch toggle -->
-                            <div id="theme-switch" onclick="toggleDarkMode(); updateThemeUI();"
-                                 style="width:52px;height:28px;border-radius:14px;background:var(--border);
-                                        cursor:pointer;position:relative;transition:background .25s;flex-shrink:0;
-                                        -webkit-tap-highlight-color:transparent;">
-                                <div id="theme-knob"
-                                     style="width:22px;height:22px;border-radius:50%;background:white;
-                                            position:absolute;top:3px;left:3px;
-                                            transition:transform .25s, background .25s;
-                                            box-shadow:0 1px 4px rgba(0,0,0,.25);">
-                                </div>
-                            </div>
+                            <!-- Toggle Switch -->
+                            <label style="position: relative; display: inline-block; width: 48px; height: 26px; cursor: pointer;">
+                                <input type="checkbox" id="dark-mode-toggle" style="opacity:0; width:0; height:0;">
+                                <span id="toggle-slider" style="
+                                    position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+                                    background-color: #ccc; border-radius: 26px; transition: 0.3s;">
+                                    <span id="toggle-knob" style="
+                                        position: absolute; height: 20px; width: 20px; left: 3px; bottom: 3px;
+                                        background-color: white; border-radius: 50%; transition: 0.3s;"></span>
+                                </span>
+                            </label>
                         </div>
                     </div>
 
-                    <!-- Informações -->
-                    <div style="padding:.9rem 1rem;background:var(--surface);border-radius:var(--radius-sm);">
-                        <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.7px;color:var(--text-muted);margin-bottom:.25rem;">Versão</div>
-                        <div style="font-weight:600;">RSP Sistema v2.0</div>
+                    <div style="border: 1px solid #eee; border-radius: 8px; padding: 1rem; margin-top: 1rem;">
+                        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.3rem;">VERSÃO</div>
+                        <strong>RSP Sistema v2.0</strong>
                     </div>
 
-                    <div style="padding:.9rem 1rem;background:var(--surface);border-radius:var(--radius-sm);">
-                        <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.7px;color:var(--text-muted);margin-bottom:.5rem;">Ações</div>
-                        <div style="display:flex;flex-direction:column;gap:.5rem;">
-                            <button class="btn btn-outline btn-sm" style="text-align:left;"
-                                onclick="if(confirm('Limpar todos os dados locais? (não apaga o Firebase)'))
-                                { localStorage.clear(); showToast('Cache local apagado.','info'); }">
-                                🗑 Limpar cache local
-                            </button>
-                            <a href="index.html" class="btn btn-outline btn-sm" style="text-align:left;">
-                                🏠 Ir ao Dashboard
-                            </a>
-                        </div>
+                    <div style="border: 1px solid #eee; border-radius: 8px; padding: 1rem; margin-top: 1rem;">
+                        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.75rem;">AÇÕES</div>
+                        <button class="btn btn-outline" style="width: 100%; margin-bottom: 0.5rem;" onclick="clearLocalCache()">
+                            🗑️ Limpar cache local
+                        </button>
+                        <button class="btn btn-outline" style="width: 100%;" onclick="window.location.href='index.html'">
+                            🏠 Ir ao Dashboard
+                        </button>
                     </div>
-
                 </div>
-            </div>
 
+            </div>
         </div>
     </div>
-</div>
 
-<script src="darkmode.js"></script>
-<script src="auth.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<script src="app.js"></script>
-<script>
-    // Mostra status do link em tempo real
-    function updateUrlStatus() {
-        const box = document.getElementById('url-status-box');
-        if (!box) return;
-        const s = window._rspLS ? window._rspLS.getSettings() : (JSON.parse(localStorage.getItem('rsp_settings')) || {});
-        const url = (s.publicUrl || '').trim();
+    <script src="app.js"></script>
+    <script>
+        // ── URL Pública fixa ──────────────────────────────────────────────
+        const FIXED_PUBLIC_URL = 'https://rspsistema.vercel.app';
 
-        if (!url) {
-            box.innerHTML = `
-                <div style="display:flex;align-items:flex-start;gap:.75rem;padding:1rem;background:#ffebee;border-radius:8px;border-left:3px solid #c62828;">
-                    <span style="font-size:1.5rem;line-height:1;">❌</span>
-                    <div>
-                        <strong style="color:#c62828;">URL pública não configurada</strong>
-                        <p style="font-size:.82rem;color:#5a5650;margin-top:.3rem;">
-                            Os links enviados no WhatsApp <strong>não funcionarão</strong> para os clientes.
-                            Configure a URL acima.
-                        </p>
+        window.addEventListener('DOMContentLoaded', () => {
+            // Carrega configs salvas
+            const saved = JSON.parse(localStorage.getItem('rspConfig') || '{}');
+
+            document.getElementById('config-company-name').value = saved.companyName || '';
+            document.getElementById('config-owner').value         = saved.owner       || '';
+            document.getElementById('config-phone').value         = saved.phone       || '';
+
+            // URL pública: sempre usa a fixa; ignora qualquer valor salvo anteriormente
+            const urlField = document.getElementById('config-public-url');
+            urlField.value = FIXED_PUBLIC_URL + '/quote_approval.html?id=XXXXX';
+
+            // Salva já no localStorage para garantir consistência
+            saved.publicUrl = FIXED_PUBLIC_URL;
+            localStorage.setItem('rspConfig', JSON.stringify(saved));
+
+            updateUrlStatus(FIXED_PUBLIC_URL);
+
+            // Dark mode
+            const toggle = document.getElementById('dark-mode-toggle');
+            if (saved.darkMode) {
+                toggle.checked = true;
+                applyDarkMode(true);
+            }
+            toggle.addEventListener('change', () => {
+                applyDarkMode(toggle.checked);
+                const cfg = JSON.parse(localStorage.getItem('rspConfig') || '{}');
+                cfg.darkMode = toggle.checked;
+                localStorage.setItem('rspConfig', JSON.stringify(cfg));
+            });
+        });
+
+        // Salvar configurações
+        document.getElementById('config-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const cfg = JSON.parse(localStorage.getItem('rspConfig') || '{}');
+            cfg.companyName = document.getElementById('config-company-name').value;
+            cfg.owner       = document.getElementById('config-owner').value;
+            cfg.phone       = document.getElementById('config-phone').value;
+            cfg.publicUrl   = FIXED_PUBLIC_URL;   // sempre mantém a URL fixa
+
+            // Garante que o campo exibe a URL fixa (evita edição manual)
+            document.getElementById('config-public-url').value =
+                FIXED_PUBLIC_URL + '/quote_approval.html?id=XXXXX';
+
+            localStorage.setItem('rspConfig', JSON.stringify(cfg));
+            updateUrlStatus(FIXED_PUBLIC_URL);
+            alert('✅ Configurações salvas com sucesso!');
+        });
+
+        // Status do link WhatsApp
+        function updateUrlStatus(url) {
+            const box = document.getElementById('url-status-box');
+            const isValid = url && url.startsWith('https://');
+            const exampleUrl = FIXED_PUBLIC_URL + '/quote_approval.html?id=XXXXX';
+
+            if (isValid) {
+                box.style.background = '#f0fdf4';
+                box.style.border = '1px solid #86efac';
+                box.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:0.5rem; color:#16a34a; font-weight:700; margin-bottom:0.5rem;">
+                        ✅ URL configurada
                     </div>
-                </div>`;
-        } else {
-            box.innerHTML = `
-                <div style="display:flex;align-items:flex-start;gap:.75rem;padding:1rem;background:#e8f5e9;border-radius:8px;border-left:3px solid #2e7d32;">
-                    <span style="font-size:1.5rem;line-height:1;">✅</span>
-                    <div style="word-break:break-all;">
-                        <strong style="color:#2e7d32;">URL configurada</strong>
-                        <p style="font-size:.82rem;color:#5a5650;margin-top:.3rem;">
-                            Link de exemplo que será enviado ao cliente:<br>
-                            <code style="background:#c8e6c9;padding:.2rem .4rem;border-radius:4px;font-size:.78rem;word-break:break-all;">
-                                ${url}/quote_approval.html?id=XXXXX
-                            </code>
-                        </p>
-                        <a href="${url}/quote_approval.html?id=teste" target="_blank"
-                            style="display:inline-block;margin-top:.6rem;font-size:.8rem;color:#2e7d32;font-weight:600;">
-                            🔗 Testar link →
-                        </a>
+                    <div style="color:#555; font-size:0.85rem; margin-bottom:0.5rem;">Link de exemplo que será enviado ao cliente:</div>
+                    <code style="display:block; background:#e8f5e9; padding:0.5rem 0.75rem; border-radius:6px; font-size:0.8rem; word-break:break-all; color:#333;">${exampleUrl}</code>
+                    <a href="${exampleUrl}" target="_blank" style="display:inline-block; margin-top:0.75rem; color:#16a34a; font-size:0.85rem; text-decoration:none;">
+                        🔗 Testar link →
+                    </a>
+                `;
+            } else {
+                box.style.background = '#fff1f2';
+                box.style.border = '1px solid #fca5a5';
+                box.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:0.5rem; color:#dc2626; font-weight:700; margin-bottom:0.5rem;">
+                        ✖ URL pública não configurada
                     </div>
-                </div>`;
+                    <div style="color:#555; font-size:0.85rem;">
+                        Os links enviados no WhatsApp <strong>não funcionarão</strong> para os clientes. Configure a URL acima.
+                    </div>
+                `;
+            }
         }
-    }
 
-    // Atualiza status quando o campo muda
-    document.addEventListener('DOMContentLoaded', () => {
-        setTimeout(updateUrlStatus, 300); // aguarda app.js carregar
-        const urlInput = document.getElementById('config-public-url');
-        if (urlInput) urlInput.addEventListener('input', updateUrlStatus);
-    });
-</script>
+        // Dark mode
+        function applyDarkMode(on) {
+            document.body.classList.toggle('dark-mode', on);
+            document.getElementById('theme-label').textContent = on ? 'Modo Escuro' : 'Modo Claro';
+            const slider = document.getElementById('toggle-slider');
+            const knob   = document.getElementById('toggle-knob');
+            slider.style.backgroundColor = on ? '#f97316' : '#ccc';
+            knob.style.transform = on ? 'translateX(22px)' : 'translateX(0)';
+        }
 
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        if (window.RSPAuth) window.RSPAuth.injectLogoutButton();
-    });
-</script>
-
-<!-- Bottom Navigation — mobile only -->
-<nav class="bottom-nav">
-    <a href="index.html" data-page="index">
-        <span class="nav-icon">🏠</span>Dashboard
-    </a>
-    <a href="service_form.html" data-page="service_form">
-        <span class="nav-icon">➕</span>Nova OS
-    </a>
-    <a href="clientes.html" data-page="clientes">
-        <span class="nav-icon">👥</span>Clientes
-    </a>
-    <a href="reports.html" data-page="reports">
-        <span class="nav-icon">📊</span>Relatórios
-    </a>
-    <a href="configuracoes.html" data-page="configuracoes">
-        <span class="nav-icon">⚙️</span>Config
-    </a>
-</nav>
-<script>
-(function(){
-    var page = location.pathname.split('/').pop().replace('.html','') || 'index';
-    var links = document.querySelectorAll('.bottom-nav a');
-    links.forEach(function(a){
-        if(a.dataset.page === page) a.classList.add('active');
-    });
-})();
-</script>
-
-<script>
-function updateThemeUI() {
-    var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    var sw     = document.getElementById('theme-switch');
-    var knob   = document.getElementById('theme-knob');
-    var label  = document.getElementById('theme-label');
-    if (sw)    sw.style.background = isDark ? '#d36e2d' : 'var(--border)';
-    if (knob)  knob.style.transform = isDark ? 'translateX(24px)' : 'translateX(0)';
-    if (label) label.textContent = isDark ? '🌙 Modo Escuro' : '☀️ Modo Claro';
-}
-document.addEventListener('DOMContentLoaded', updateThemeUI);
-</script>
-
+        // Limpar cache
+        function clearLocalCache() {
+            if (confirm('Tem certeza que deseja limpar o cache local? Os dados de configuração serão mantidos.')) {
+                const cfg = localStorage.getItem('rspConfig');
+                localStorage.clear();
+                if (cfg) localStorage.setItem('rspConfig', cfg);
+                alert('✅ Cache limpo com sucesso!');
+            }
+        }
+    </script>
 </body>
+
 </html>
