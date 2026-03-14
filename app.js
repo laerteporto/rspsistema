@@ -797,8 +797,10 @@ async function initServiceForm() {
             const settings   = LS.getSettings();
 
             let approvalUrl;
-            const pubUrl = (settings.publicUrl || '').trim().replace(/\/+$/, '');
-            if (pubUrl) {
+            const pubUrl = (settings.publicUrl || '').trim()
+                .replace(/\/+$/, '')                          // remove trailing slashes
+                .replace(/\/quote_approval.*$/i, '');         // remove sufixo se vier colado
+            if (pubUrl && pubUrl.startsWith('http')) {
                 approvalUrl = pubUrl + '/quote_approval.html?id=' + currentOSId;
             } else {
                 showToast('⚠️ Configure a URL Pública em Configurações!', 'error', 7000);

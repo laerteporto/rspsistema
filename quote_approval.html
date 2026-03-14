@@ -282,7 +282,11 @@ try {
 } catch(e){ console.warn('Firebase init:', e.message); }
 
 // ── Carrega e exibe o orçamento ────────────────────────────────────────────
-const orderId = new URLSearchParams(window.location.search).get('id');
+// Sanitiza o ID: extrai apenas os dígitos do final para evitar IDs corrompidos
+// ex: "XXXXX/quote_approval.html?id=44414" vira "44414"
+const _rawId  = new URLSearchParams(window.location.search).get('id') || '';
+const _digits = _rawId.match(/\d+/g);
+const orderId = _digits ? _digits[_digits.length - 1] : null;
 const card    = document.getElementById('quote-card');
 
 async function loadAndRender() {
