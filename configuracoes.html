@@ -145,9 +145,9 @@
             document.getElementById('config-owner').value         = saved.owner       || '';
             document.getElementById('config-phone').value         = saved.phone       || '';
 
-            // URL pública: sempre usa a fixa; ignora qualquer valor salvo anteriormente
+            // URL pública: sempre usa a fixa (somente a base, sem sufixo)
             const urlField = document.getElementById('config-public-url');
-            urlField.value = FIXED_PUBLIC_URL + '/quote_approval.html?id=XXXXX';
+            urlField.value = FIXED_PUBLIC_URL;
 
             // Salva já no localStorage para garantir consistência
             saved.publicUrl = FIXED_PUBLIC_URL;
@@ -176,11 +176,10 @@
             cfg.companyName = document.getElementById('config-company-name').value;
             cfg.owner       = document.getElementById('config-owner').value;
             cfg.phone       = document.getElementById('config-phone').value;
-            cfg.publicUrl   = FIXED_PUBLIC_URL;   // sempre mantém a URL fixa
+            cfg.publicUrl   = FIXED_PUBLIC_URL;   // sempre mantém a URL fixa (só a base)
 
-            // Garante que o campo exibe a URL fixa (evita edição manual)
-            document.getElementById('config-public-url').value =
-                FIXED_PUBLIC_URL + '/quote_approval.html?id=XXXXX';
+            // Garante que o campo exibe apenas a URL base fixa
+            document.getElementById('config-public-url').value = FIXED_PUBLIC_URL;
 
             localStorage.setItem('rspConfig', JSON.stringify(cfg));
             updateUrlStatus(FIXED_PUBLIC_URL);
