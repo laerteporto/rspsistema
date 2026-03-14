@@ -1352,22 +1352,29 @@ window.exportReportToPDF = async function () {
 function initConfigPage() {
     const form = document.getElementById('config-form');
     if (!form) return;
+
+    // URL pública fixa — nunca alterada pelo usuário
+    const FIXED_PUBLIC_URL = 'https://rspsistema.vercel.app';
+
     const s = LS.getSettings();
     document.getElementById('config-company-name').value = s.companyName;
     document.getElementById('config-owner').value        = s.owner;
     document.getElementById('config-phone').value        = s.phone;
+
+    // Força URL limpa no campo e no localStorage imediatamente
     const pubEl = document.getElementById('config-public-url');
-    if (pubEl) pubEl.value = s.publicUrl || '';
+    if (pubEl) pubEl.value = FIXED_PUBLIC_URL;
+    LS.saveSettings({ ...s, publicUrl: FIXED_PUBLIC_URL });
 
     form.addEventListener('submit', e => {
         e.preventDefault();
-        const pubUrl = document.getElementById('config-public-url');
         LS.saveSettings({
             companyName: document.getElementById('config-company-name').value.trim(),
             owner:       document.getElementById('config-owner').value.trim(),
             phone:       document.getElementById('config-phone').value.trim(),
-            publicUrl:   pubUrl ? pubUrl.value.trim() : '',
+            publicUrl:   FIXED_PUBLIC_URL,   // sempre fixa, ignora o que estiver no campo
         });
+        if (pubEl) pubEl.value = FIXED_PUBLIC_URL; // garante exibição correta
         showToast('✅ Configurações salvas!', 'success');
     });
 }
