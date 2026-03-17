@@ -48,6 +48,7 @@
 
                     <hr style="border: none; border-top: 1px dashed #ccc; margin: 1.5rem 0;">
 
+<<<<<<< HEAD
                     <!-- URL Pública -->
                     <div class="form-group">
                         <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 600;">
@@ -84,6 +85,34 @@
                     <h3>Status do Link WhatsApp</h3>
                     <div id="url-status-box" style="margin-top: 1rem; border-radius: 8px; padding: 1rem;">
                         <!-- Preenchido pelo JS -->
+=======
+                <!-- ──────────────────────────────────────────────────────── -->
+                <!-- CAMPO CRÍTICO: URL pública do sistema                    -->
+                <!-- ──────────────────────────────────────────────────────── -->
+                <div class="form-group" style="border-top:2px dashed var(--border);padding-top:1.5rem;margin-top:.5rem;">
+                    <label style="color:var(--primary);font-weight:700;">
+                        🌐 URL Pública do Sistema
+                        <span style="background:var(--primary);color:white;font-size:.65rem;padding:.2rem .5rem;border-radius:4px;margin-left:.4rem;vertical-align:middle;">OBRIGATÓRIO</span>
+                    </label>
+                    <input type="text" id="config-public-url" class="form-control"
+                        placeholder="https://rspsistema.vercel.app" style="border-color:var(--primary);"
+                        oninput="checkUrlFormat(this)">
+                    <div id="url-format-warning" style="display:none;margin-top:.5rem;padding:.6rem .9rem;
+                         background:#ffebee;border-radius:6px;border-left:3px solid #c62828;font-size:.82rem;color:#c62828;">
+                        ⚠️ <strong>Remova o "/login.html" (ou qualquer página) do final.</strong><br>
+                        Correto: <code id="url-suggestion" style="background:#ffd7d7;padding:.1rem .3rem;border-radius:3px;"></code>
+                    </div>
+                    <div style="margin-top:.75rem;padding:1rem;background:#fff3e0;border-radius:8px;border-left:3px solid var(--primary);font-size:.82rem;line-height:1.7;">
+                        <strong>⚠️ Por que isso é necessário?</strong><br>
+                        O link enviado no WhatsApp precisa de uma URL que o cliente consiga abrir no celular.
+                        Um caminho local <code style="background:#fde0c8;padding:.1rem .3rem;border-radius:3px;">file:///home/...</code>
+                        só funciona no seu computador.<br><br>
+                        <strong>Opções gratuitas para hospedar o sistema:</strong><br>
+                        &nbsp;•&nbsp;<a href="https://firebase.google.com/docs/hosting" target="_blank" style="color:var(--primary);font-weight:600;">Firebase Hosting</a> — recomendado (já usa Firebase)<br>
+                        &nbsp;•&nbsp;<a href="https://pages.github.com" target="_blank" style="color:var(--primary);font-weight:600;">GitHub Pages</a> — simples e gratuito<br>
+                        &nbsp;•&nbsp;<a href="https://netlify.com" target="_blank" style="color:var(--primary);font-weight:600;">Netlify</a> — arraste e solte a pasta<br><br>
+                        Após hospedar, cole aqui a URL gerada (ex: <code>https://rpssystem.web.app</code>).
+>>>>>>> 0552d5fb5a74e40da79bdb36544731539663c3ce
                     </div>
                 </div>
 
@@ -219,6 +248,7 @@
             }
         }
 
+<<<<<<< HEAD
         // Dark mode
         function applyDarkMode(on) {
             document.body.classList.toggle('dark-mode', on);
@@ -228,6 +258,80 @@
             slider.style.backgroundColor = on ? '#f97316' : '#ccc';
             knob.style.transform = on ? 'translateX(22px)' : 'translateX(0)';
         }
+=======
+    // Atualiza status quando o campo muda
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(updateUrlStatus, 300); // aguarda app.js carregar
+        const urlInput = document.getElementById('config-public-url');
+        if (urlInput) urlInput.addEventListener('input', updateUrlStatus);
+    });
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.RSPAuth) window.RSPAuth.injectLogoutButton();
+    });
+</script>
+
+<!-- Bottom Navigation — mobile only -->
+<nav class="bottom-nav">
+    <a href="index.html" data-page="index">
+        <span class="nav-icon">🏠</span>Dashboard
+    </a>
+    <a href="service_form.html" data-page="service_form">
+        <span class="nav-icon">➕</span>Nova OS
+    </a>
+    <a href="clientes.html" data-page="clientes">
+        <span class="nav-icon">👥</span>Clientes
+    </a>
+    <a href="reports.html" data-page="reports">
+        <span class="nav-icon">📊</span>Relatórios
+    </a>
+    <a href="configuracoes.html" data-page="configuracoes">
+        <span class="nav-icon">⚙️</span>Config
+    </a>
+</nav>
+<script>
+(function(){
+    var page = location.pathname.split('/').pop().replace('.html','') || 'index';
+    var links = document.querySelectorAll('.bottom-nav a');
+    links.forEach(function(a){
+        if(a.dataset.page === page) a.classList.add('active');
+    });
+})();
+</script>
+
+<script>
+<<<<<<< HEAD
+function checkUrlFormat(input) {
+    const val = input.value.trim();
+    const warning = document.getElementById('url-format-warning');
+    const suggestion = document.getElementById('url-suggestion');
+    if (!warning) return;
+    // Detecta se tem .html no final
+    if (val && /\/[^/]+\.html/.test(val)) {
+        const clean = val.replace(/\/+$/, '').replace(/\/[^/]+\.html$/, '');
+        if (suggestion) suggestion.textContent = clean;
+        warning.style.display = 'block';
+    } else {
+        warning.style.display = 'none';
+    }
+}
+
+=======
+>>>>>>> e3672084cfcf4234ee30e6f7220eb8fce394bdd8
+function updateThemeUI() {
+    var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    var sw     = document.getElementById('theme-switch');
+    var knob   = document.getElementById('theme-knob');
+    var label  = document.getElementById('theme-label');
+    if (sw)    sw.style.background = isDark ? '#d36e2d' : 'var(--border)';
+    if (knob)  knob.style.transform = isDark ? 'translateX(24px)' : 'translateX(0)';
+    if (label) label.textContent = isDark ? '🌙 Modo Escuro' : '☀️ Modo Claro';
+}
+document.addEventListener('DOMContentLoaded', updateThemeUI);
+</script>
+>>>>>>> 0552d5fb5a74e40da79bdb36544731539663c3ce
 
         // Limpar cache
         function clearLocalCache() {
