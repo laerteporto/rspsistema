@@ -1,179 +1,436 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nova OS | RSP Serviços</title>
-    <link rel="stylesheet" href="styles.css">
-    <style>
-        .wa-panel { border-top: 4px solid var(--whatsapp); }
-        .wa-panel > h3 { border-color: rgba(37,211,102,.25); }
-        #btn-send-whatsapp { width:100%; justify-content:center; padding:1rem; font-size:1rem; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RSP Serviços – Nova OS</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f0efeb;
+      color: #222;
+      min-height: 100vh;
+    }
+
+    /* ── Navbar ── */
+    .navbar {
+      background: white;
+      border-bottom: 1px solid #e0ddd6;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .logo { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; color: #222; }
+    .logo span { color: #e07b39; }
+    .nav-links { display: flex; gap: 6px; align-items: center; }
+    .nav-link {
+      font-size: 13px; color: #555; padding: 6px 12px;
+      border-radius: 6px; cursor: pointer; text-decoration: none;
+      transition: background 0.15s;
+    }
+    .nav-link:hover { background: #f5f3ef; }
+    .nav-link.active { background: #e07b39; color: white; }
+    .nav-user {
+      font-size: 13px; color: #555;
+      border: 1px solid #ddd; border-radius: 6px; padding: 6px 12px;
+    }
+
+    /* ── Layout ── */
+    .content {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 20px;
+      padding: 24px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    /* ── Cards ── */
+    .main-card, .side-card {
+      background: white;
+      border-radius: 10px;
+      border: 1px solid #e0ddd6;
+      padding: 28px;
+    }
+    .section-title {
+      font-size: 17px; font-weight: 600; color: #222;
+      margin-bottom: 24px; padding-bottom: 14px;
+      border-bottom: 1px solid #eee;
+    }
+
+    /* ── Fields ── */
+    .field-group { margin-bottom: 22px; }
+    .field-label {
+      font-size: 13px; font-weight: 600; color: #222;
+      margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+    }
+    .field-label .req { color: #e07b39; }
+    .field-label .sub { font-size: 12px; color: #aaa; font-weight: 400; }
+    .hint { font-size: 12px; color: #aaa; margin-top: 5px; }
+    .hint a { color: #e07b39; text-decoration: none; }
+    .hint a:hover { text-decoration: underline; }
+
+    select {
+      width: 100%; border: 1px solid #ddd; border-radius: 8px;
+      padding: 10px 13px; font-size: 14px; color: #555;
+      background: white; outline: none; cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    select:focus { border-color: #e07b39; box-shadow: 0 0 0 3px rgba(224,123,57,0.12); }
+
+    /* Dark inputs */
+    .input-dark {
+      width: 100%; background: #2b2b2b; color: #aaa;
+      border: none; border-radius: 8px; padding: 13px 16px;
+      font-size: 15px; outline: none;
+    }
+    .input-dark::placeholder { color: #777; }
+
+    .input-dark-sm {
+      background: #2b2b2b; color: #aaa; border: none;
+      border-radius: 8px; padding: 13px 16px; font-size: 15px;
+      outline: none; width: 200px;
+    }
+    .input-dark-sm::placeholder { color: #777; }
+
+    /* ── Category chips ── */
+    .cat-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    .cat-chip {
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px 14px; border: 1px solid #e0ddd6;
+      border-radius: 8px; cursor: pointer; background: white;
+      user-select: none; transition: border-color 0.15s, background 0.15s;
+    }
+    .cat-chip:hover { border-color: #e07b39; background: #fff9f5; }
+    .cat-chip.selected { border-color: #e07b39; background: #fff4ec; }
+    .cat-chip input[type="checkbox"] { display: none; }
+    .chip-icon { font-size: 20px; width: 26px; text-align: center; flex-shrink: 0; }
+    .chip-label { font-size: 14px; color: #222; font-weight: 500; flex: 1; }
+    .cat-chip.selected .chip-label { color: #c05c1a; }
+    .chip-check {
+      width: 17px; height: 17px; border: 1.5px solid #ccc;
+      border-radius: 4px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      margin-left: auto; transition: background 0.15s, border-color 0.15s;
+    }
+    .cat-chip.selected .chip-check { background: #e07b39; border-color: #e07b39; }
+    .checkmark { display: none; }
+    .cat-chip.selected .checkmark { display: block; }
+
+    /* ── Valor row ── */
+    .valor-row { display: flex; align-items: center; gap: 14px; }
+    .scroll-btn {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: #555; border: none; display: flex;
+      align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .scroll-btn:hover { background: #333; }
+    .scroll-btn svg { fill: white; width: 18px; height: 18px; }
+
+    /* ── Photo drop ── */
+    .photo-drop {
+      border: 2px dashed #e07b39; border-radius: 10px;
+      padding: 32px; text-align: center; background: #fffaf6; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .photo-drop:hover { background: #fff4ec; }
+    .drop-text { color: #e07b39; font-size: 14px; font-weight: 600; margin-top: 8px; }
+    .drop-sub { font-size: 12px; color: #bbb; margin-top: 3px; }
+    #photo-input { display: none; }
+    .photo-thumbs { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .photo-thumb {
+      width: 72px; height: 72px; border-radius: 6px;
+      object-fit: cover; border: 1px solid #e0ddd6;
+    }
+
+    /* ── Sidebar ── */
+    .side-title { font-size: 15px; font-weight: 600; color: #222; margin-bottom: 8px; }
+    .side-desc { font-size: 13px; color: #777; line-height: 1.6; margin-bottom: 14px; }
+    .side-note {
+      background: #f0faf5; border-left: 3px solid #34b37e;
+      border-radius: 6px; padding: 11px 13px;
+      font-size: 13px; color: #2d7a5a; line-height: 1.6; margin-bottom: 20px;
+    }
+    .btn-whats {
+      background: #25d366; color: white; border: none;
+      border-radius: 9px; padding: 13px 18px; font-size: 14px;
+      font-weight: 600; cursor: pointer; width: 100%;
+      display: flex; align-items: center; justify-content: center;
+      gap: 9px; transition: background 0.15s;
+    }
+    .btn-whats:hover { background: #1ebe5a; }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .content { grid-template-columns: 1fr; }
+      .cat-grid { grid-template-columns: repeat(2, 1fr); }
+      .nav-links { display: none; }
+    }
+  </style>
 </head>
 <body>
 
-<nav class="navbar">
-    <div class="brand">
-        <h1 class="brand-title">RSP <span style="color:var(--primary);">Serviços</span></h1>
-    </div>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="logo">RSP <span>SERVIÇOS</span></div>
     <div class="nav-links">
-        <a href="index.html">Dashboard</a>
-        <a href="service_form.html">Nova OS</a>
-        <a href="clientes.html">Clientes</a>
-        <a href="reports.html">Relatórios</a>
-        <a href="configuracoes.html">Configurações</a>
+      <a href="#" class="nav-link">Dashboard</a>
+      <a href="#" class="nav-link active">Nova OS</a>
+      <a href="#" class="nav-link">Clientes</a>
+      <a href="#" class="nav-link">Relatórios</a>
+      <a href="#" class="nav-link">Configurações</a>
+      <span class="nav-user">👤 Laerte · Sair</span>
     </div>
-</nav>
+  </nav>
 
-<div class="container">
-    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.75rem;">
-        <a href="index.html" style="color:var(--text-muted);text-decoration:none;font-size:.9rem;">← Dashboard</a>
-        <span style="color:var(--border);">|</span>
-        <h2 id="page-title" style="margin:0;">Criar Ordem de Serviço</h2>
-    </div>
+  <!-- Conteúdo -->
+  <div class="content">
 
-    <div class="dashboard-grid" style="grid-template-columns:2fr 1fr;align-items:start;">
+    <!-- Formulário principal -->
+    <div class="main-card">
+      <div class="section-title">Detalhes do Serviço</div>
 
-        <!-- Formulário principal -->
-        <div class="card">
-            <h3>Detalhes do Serviço</h3>
-            <form id="service-form" style="margin-top:1.25rem;">
+      <!-- Cliente -->
+      <div class="field-group">
+        <div class="field-label">Cliente <span class="req">*</span></div>
+        <select id="select-cliente" onchange="preencherWhatsapp()">
+          <option value="">— Selecione um cliente cadastrado —</option>
+          <option value="(62) 99999-0001">João da Silva</option>
+          <option value="(62) 99999-0002">Maria Oliveira</option>
+          <option value="(62) 99999-0003">Carlos Mendes</option>
+        </select>
+        <div class="hint">Não encontrou? <a href="#">Cadastre aqui</a></div>
+      </div>
 
-                <div class="form-group">
-                    <label>Cliente *</label>
-                    <select id="client-select" class="form-control" onchange="fillClientData()">
-                        <option value="">— Selecione um cliente cadastrado —</option>
-                    </select>
-                    <p class="form-hint">Não encontrou? <a href="clientes.html" style="color:var(--primary);">Cadastre aqui</a></p>
-                </div>
+      <!-- WhatsApp -->
+      <div class="field-group">
+        <div class="field-label">WhatsApp do Cliente</div>
+        <input class="input-dark" id="whatsapp-cliente" type="text"
+               placeholder="Preenchido ao selecionar o cliente" readonly />
+      </div>
 
-                <!-- Campo oculto para nome do cliente -->
-                <input type="hidden" id="client-name">
-
-                <div class="form-group">
-                    <label>WhatsApp do Cliente</label>
-                    <input type="text" id="client-phone" class="form-control" placeholder="Preenchido ao selecionar o cliente" readonly>
-                </div>
-
-                <div class="form-group">
-                    <label>Categoria do Serviço *</label>
-                    <select id="service-category" class="form-control">
-                        <option value="">Selecione...</option>
-                        <option>Instalações</option>
-                        <option>Reparos</option>
-                        <option>Hidráulica</option>
-                        <option>Elétrica</option>
-                        <option>Pintura</option>
-                        <option>Jardinagem</option>
-                        <option>Outros</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Descrição do Serviço</label>
-                    <textarea id="service-description" class="form-control" rows="4"
-                        placeholder="Descreva detalhadamente o serviço a ser realizado..."></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label>Valor do Orçamento (R$)</label>
-                    <input type="text" id="service-value" class="form-control"
-                        placeholder="Ex: 350,00" style="max-width:200px;">
-                </div>
-
-                <div class="form-group">
-                    <label>📎 Fotos do Serviço</label>
-                    <div class="attachment-zone" onclick="document.getElementById('service-photo').click()">
-                        <span class="icon">📸</span>
-                        <strong style="color:var(--primary);">Clique para adicionar fotos</strong>
-                        <div class="hint">JPG ou PNG · máximo 5 fotos · serão incluídas no orçamento</div>
-                    </div>
-                    <input type="file" id="service-photo" accept="image/*" multiple style="display:none;">
-                    <div class="photo-grid" id="photo-preview-container"></div>
-                    <div id="photo-count-label" style="font-size:.82rem;color:var(--text-muted);margin-top:.5rem;"></div>
-                </div>
-
-                <!-- btn-area: local onde o botão "Concluído" é inserido dinamicamente -->
-                <div style="display:flex;gap:1rem;margin-top:1.5rem;flex-wrap:wrap;" class="btn-area">
-                    <button type="button" id="btn-save-draft" class="btn btn-secondary">💾 Salvar Rascunho</button>
-                </div>
-
-            </form>
+      <!-- Categorias do Serviço -->
+      <div class="field-group">
+        <div class="field-label">
+          Categorias do Serviço <span class="req">*</span>
+          <span class="sub">(selecione uma ou mais)</span>
         </div>
+        <div class="cat-grid">
 
-        <!-- Painel WhatsApp -->
-        <div class="card wa-panel" style="height:fit-content;">
-            <h3>Envio via WhatsApp</h3>
-            <p style="margin-top:1rem;margin-bottom:1.5rem;font-size:.9rem;color:var(--text-secondary);">
-                Gere automaticamente um link de aprovação e envie ao cliente pelo WhatsApp.
-            </p>
-
-            <div style="background:var(--surface);padding:1rem;border-radius:var(--radius-sm);
-                        margin-bottom:1.5rem;font-size:.85rem;line-height:1.6;
-                        border-left:3px solid var(--whatsapp);">
-                O cliente receberá um link com os detalhes, fotos e botões para
-                <strong>Aprovar</strong> ou <strong>Recusar</strong> o orçamento.
+          <label class="cat-chip" onclick="toggleCat(this)">
+            <input type="checkbox" value="Instalações">
+            <span class="chip-icon">🔧</span>
+            <span class="chip-label">Instalações</span>
+            <div class="chip-check">
+              <svg class="checkmark" width="10" height="8" viewBox="0 0 10 8" fill="none">
+                <path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
             </div>
+          </label>
 
-            <!--
-                IMPORTANTE: este é um <button> (não <a>) para evitar bugs de navegação.
-                O JS em app.js captura o click via addEventListener.
-            -->
-            <button type="button" id="btn-send-whatsapp" class="btn btn-whatsapp">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
-                    fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7
-                             8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8
-                             8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5
-                             a8.48 8.48 0 0 1 8 8v.5z"></path>
-                </svg>
-                Enviar Orçamento pelo WhatsApp
-            </button>
+          <label class="cat-chip" onclick="toggleCat(this)">
+            <input type="checkbox" value="Reparos">
+            <span class="chip-icon">🛠️</span>
+            <span class="chip-label">Reparos</span>
+            <div class="chip-check">
+              <svg class="checkmark" width="10" height="8" viewBox="0 0 10 8" fill="none">
+                <path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+          </label>
+
+          <label class="cat-chip" onclick="toggleCat(this)">
+            <input type="checkbox" value="Hidráulica">
+            <span class="chip-icon">💧</span>
+            <span class="chip-label">Hidráulica</span>
+            <div class="chip-check">
+              <svg class="checkmark" width="10" height="8" viewBox="0 0 10 8" fill="none">
+                <path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+          </label>
+
+          <label class="cat-chip" onclick="toggleCat(this)">
+            <input type="checkbox" value="Elétrica">
+            <span class="chip-icon">⚡</span>
+            <span class="chip-label">Elétrica</span>
+            <div class="chip-check">
+              <svg class="checkmark" width="10" height="8" viewBox="0 0 10 8" fill="none">
+                <path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+          </label>
+
+          <label class="cat-chip" onclick="toggleCat(this)">
+            <input type="checkbox" value="Pintura">
+            <span class="chip-icon">🖌️</span>
+            <span class="chip-label">Pintura</span>
+            <div class="chip-check">
+              <svg class="checkmark" width="10" height="8" viewBox="0 0 10 8" fill="none">
+                <path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+          </label>
+
+          <label class="cat-chip" onclick="toggleCat(this)">
+            <input type="checkbox" value="Jardinagem">
+            <span class="chip-icon">🌿</span>
+            <span class="chip-label">Jardinagem</span>
+            <div class="chip-check">
+              <svg class="checkmark" width="10" height="8" viewBox="0 0 10 8" fill="none">
+                <path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+          </label>
+
+          <label class="cat-chip" onclick="toggleCat(this)">
+            <input type="checkbox" value="Outros">
+            <span class="chip-icon">📋</span>
+            <span class="chip-label">Outros</span>
+            <div class="chip-check">
+              <svg class="checkmark" width="10" height="8" viewBox="0 0 10 8" fill="none">
+                <path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+          </label>
+
         </div>
+      </div>
 
+      <!-- Valor -->
+      <div class="field-group">
+        <div class="field-label">Valor do Serviço (R$)</div>
+        <div class="valor-row">
+          <input class="input-dark-sm" id="valor-servico" type="text" placeholder="Ex: 350,00"
+                 oninput="formatarValor(this)" />
+          <button class="scroll-btn" title="Rolar para baixo" onclick="window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'})">
+            <svg viewBox="0 0 24 24"><path d="M12 16l-6-6h12z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Fotos -->
+      <div class="field-group">
+        <div class="field-label">Fotos do Serviço</div>
+        <div class="photo-drop" onclick="document.getElementById('photo-input').click()">
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+            <rect width="36" height="36" rx="8" fill="#fff4ec"/>
+            <path d="M11 25l5-6 4 5 3-3 4 4" stroke="#e07b39" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="14" cy="15" r="2" stroke="#e07b39" stroke-width="1.5"/>
+            <rect x="7" y="10" width="22" height="16" rx="3" stroke="#e07b39" stroke-width="1.5"/>
+          </svg>
+          <div class="drop-text">Clique para adicionar fotos</div>
+          <div class="drop-sub">JPG ou PNG · máximo 5 fotos · serão incluídas no orçamento</div>
+        </div>
+        <input type="file" id="photo-input" accept="image/jpeg,image/png" multiple onchange="previewFotos(event)" />
+        <div class="photo-thumbs" id="photo-thumbs"></div>
+      </div>
     </div>
-</div>
 
-<script src="darkmode.js"></script>
-<script src="auth.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<script src="app.js"></script>
+    <!-- Sidebar -->
+    <div>
+      <div class="side-card">
+        <div class="side-title">Envio via WhatsApp</div>
+        <div class="side-desc">Gere automaticamente um link de aprovação e envie ao cliente pelo WhatsApp.</div>
+        <div class="side-note">
+          O cliente receberá um link com os detalhes, fotos e botões para
+          <strong>Aprovar</strong> ou <strong>Recusar</strong> o orçamento.
+        </div>
+        <button class="btn-whats" onclick="enviarWhatsapp()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+            <path d="M12 0C5.373 0 0 5.373 0 12c0 2.124.558 4.118 1.533 5.845L.057 23.485a.75.75 0 0 0 .916.916l5.64-1.476A11.953 11.953 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.98 0-3.835-.551-5.415-1.508l-.387-.232-4.02 1.053 1.053-4.02-.232-.387A9.96 9.96 0 0 1 2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
+          </svg>
+          Enviar Orçamento pelo WhatsApp
+        </button>
+      </div>
+    </div>
 
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        if (window.RSPAuth) window.RSPAuth.injectLogoutButton();
-    });
-</script>
+  </div><!-- /content -->
 
-<!-- Bottom Navigation — mobile only -->
-<nav class="bottom-nav">
-    <a href="index.html" data-page="index">
-        <span class="nav-icon">🏠</span>Dashboard
-    </a>
-    <a href="service_form.html" data-page="service_form">
-        <span class="nav-icon">➕</span>Nova OS
-    </a>
-    <a href="clientes.html" data-page="clientes">
-        <span class="nav-icon">👥</span>Clientes
-    </a>
-    <a href="reports.html" data-page="reports">
-        <span class="nav-icon">📊</span>Relatórios
-    </a>
-    <a href="configuracoes.html" data-page="configuracoes">
-        <span class="nav-icon">⚙️</span>Config
-    </a>
-</nav>
-<script>
-(function(){
-    var page = location.pathname.split('/').pop().replace('.html','') || 'index';
-    var links = document.querySelectorAll('.bottom-nav a');
-    links.forEach(function(a){
-        if(a.dataset.page === page) a.classList.add('active');
-    });
-})();
-</script>
+  <script>
+    /* Marcar/desmarcar categoria */
+    function toggleCat(chip) {
+      chip.classList.toggle('selected');
+      const cb = chip.querySelector('input[type="checkbox"]');
+      if (cb) cb.checked = chip.classList.contains('selected');
+    }
+
+    /* Retorna categorias selecionadas */
+    function getCategoriаsSelecionadas() {
+      return Array.from(document.querySelectorAll('.cat-chip.selected'))
+        .map(c => c.querySelector('input').value);
+    }
+
+    /* Preenche WhatsApp ao selecionar cliente */
+    function preencherWhatsapp() {
+      const sel = document.getElementById('select-cliente');
+      const input = document.getElementById('whatsapp-cliente');
+      input.value = sel.value || '';
+      input.placeholder = sel.value ? '' : 'Preenchido ao selecionar o cliente';
+    }
+
+    /* Formatar valor como moeda brasileira */
+    function formatarValor(el) {
+      let v = el.value.replace(/\D/g, '');
+      if (!v) { el.value = ''; return; }
+      v = (parseInt(v) / 100).toFixed(2);
+      el.value = v.replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+
+    /* Preview de fotos */
+    function previewFotos(e) {
+      const files = Array.from(e.target.files).slice(0, 5);
+      const container = document.getElementById('photo-thumbs');
+      container.innerHTML = '';
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = ev => {
+          const img = document.createElement('img');
+          img.src = ev.target.result;
+          img.className = 'photo-thumb';
+          img.title = file.name;
+          container.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    /* Enviar via WhatsApp */
+    function enviarWhatsapp() {
+      const clienteEl = document.getElementById('select-cliente');
+      const whatsapp = document.getElementById('whatsapp-cliente').value.replace(/\D/g, '');
+      const cats = getCategoriаsSelecionadas();
+      const valor = document.getElementById('valor-servico').value;
+
+      if (!clienteEl.value) { alert('Selecione um cliente antes de enviar.'); return; }
+      if (cats.length === 0) { alert('Selecione ao menos uma categoria de serviço.'); return; }
+      if (!whatsapp) { alert('WhatsApp do cliente não encontrado.'); return; }
+
+      const cliente = clienteEl.options[clienteEl.selectedIndex].text;
+      const msg = encodeURIComponent(
+        `Olá ${cliente}! Segue o orçamento dos serviços:\n` +
+        `📌 Categorias: ${cats.join(', ')}\n` +
+        (valor ? `💰 Valor: R$ ${valor}\n` : '') +
+        `\nPor favor, Aprove ou Recuse o orçamento pelo link abaixo:\n[LINK DO ORÇAMENTO]`
+      );
+
+      const numero = '55' + whatsapp;
+      window.open(`https://wa.me/${numero}?text=${msg}`, '_blank');
+    }
+  </script>
+
 </body>
 </html>
