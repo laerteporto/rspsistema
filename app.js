@@ -669,7 +669,14 @@ async function initServiceForm() {
             id,
             clientName:   getClientName() || 'Cliente',
             phone:        (document.getElementById('client-phone').value || '').trim(),
-            category:     document.getElementById('service-category').value || '',
+            // Lê categorias dos chips visuais (pode ser múltipla) — fallback para select oculto
+            category:     (function() {
+                const chips = Array.from(document.querySelectorAll('.cat-chip.selected'))
+                    .map(function(c) { const cb = c.querySelector('input'); return cb ? cb.value : ''; })
+                    .filter(Boolean);
+                if (chips.length) return chips.join(', ');
+                return document.getElementById('service-category').value || '';
+            })(),
             description:  document.getElementById('service-description').value || '',
             value:        parseFloat(raw) || 0,
             photosBase64: photos,
@@ -678,33 +685,78 @@ async function initServiceForm() {
         };
     }
 
-    // Modo edição
+    // Modo edição — carrega todos os campos da OS existente
     const editId = new URLSearchParams(window.location.search).get('id');
     if (editId) {
         currentOSId = parseInt(editId, 10);
         const all = await loadAllOrders();
         const ex  = all.find(o => String(o.id) === String(editId));
         if (ex) {
-            document.getElementById('client-phone').value        = ex.phone       || '';
-            document.getElementById('service-category').value    = ex.category    || '';
-            document.getElementById('service-description').value = ex.description || '';
-            const hn = document.getElementById('client-name');
-            if (hn) hn.value = ex.clientName || '';
-            document.getElementById('service-value').value = (ex.value || 0).toFixed(2).replace('.', ',');
+            // ── Telefone ──
+            document.getElementById('client-phone').value = ex.phone || '';
 
+            // ── Nome do cliente (suporta campo legado "client" e novo "clientName") ──
+            const nomeCliente = ex.clientName || ex.client || '';
+            const hn = document.getElementById('client-name');
+            if (hn) hn.value = nomeCliente;
+
+            // ── Descrição ──
+            document.getElementById('service-description').value = ex.description || '';
+
+            // ── Valor ──
+            const rawVal = parseFloat(String(ex.value || '0').replace(',', '.')) || 0;
+            document.getElementById('service-value').value = rawVal.toFixed(2).replace('.', ',');
+
+            // ── Categorias — preenche os chips visuais E o select oculto ──
+            // Suporta tanto string simples ("Instalações") quanto múltipla ("Instalações, Reparos")
+            if (ex.category) {
+                const cats = ex.category.split(',').map(c => c.trim()).filter(Boolean);
+                document.querySelectorAll('.cat-chip').forEach(chip => {
+                    const cb = chip.querySelector('input[type="checkbox"]');
+                    if (cb && cats.indexOf(cb.value) !== -1) {
+                        chip.classList.add('selected');
+                        cb.checked = true;
+                    }
+                });
+                // Atualiza select oculto com a primeira categoria
+                const sel = document.getElementById('service-category');
+                if (sel) sel.value = cats[0] || '';
+            }
+
+            // ── Fotos ──
             const ps = ex.photosBase64 || (ex.photoBase64 ? [ex.photoBase64] : []);
             ps.forEach(p => { photos.push(p); renderThumb(p); });
             updateCount();
 
+            // ── Título da página ──
             const h2 = document.getElementById('page-title');
             if (h2) h2.textContent = `Editar OS #${currentOSId}`;
 
-            if (ex.phone) {
+            // ── Seleciona cliente no dropdown pelo telefone ──
+            // Tenta match exato primeiro, depois sem formatação
+            if (ex.phone && clientSelect) {
+                const phoneRaw = ex.phone.replace(/\D/g, '');
+                let found = false;
                 for (let i = 0; i < clientSelect.options.length; i++) {
-                    if (clientSelect.options[i].value === ex.phone) { clientSelect.selectedIndex = i; break; }
+                    const optRaw = (clientSelect.options[i].value || '').replace(/\D/g, '');
+                    if (optRaw === phoneRaw) {
+                        clientSelect.selectedIndex = i;
+                        found = true;
+                        break;
+                    }
+                }
+                // Se não achou pelo telefone, tenta pelo nome
+                if (!found && nomeCliente) {
+                    for (let i = 0; i < clientSelect.options.length; i++) {
+                        if ((clientSelect.options[i].dataset.name || '').toLowerCase() === nomeCliente.toLowerCase()) {
+                            clientSelect.selectedIndex = i;
+                            break;
+                        }
+                    }
                 }
             }
 
+            // ── Botão "Concluir" para OS aprovadas ──
             if (ex.status === 'approved') {
                 const area = document.querySelector('.btn-area');
                 if (area) {
