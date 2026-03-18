@@ -198,13 +198,13 @@
   <div class="content">
 
     <!-- Formulário principal -->
-    <div class="main-card">
-      <div class="section-title">Detalhes do Serviço</div>
+    <div class="main-card" id="service-form">
+      <div class="section-title" id="page-title">Detalhes do Serviço</div>
 
       <!-- Cliente -->
       <div class="field-group">
         <div class="field-label">Cliente <span class="req">*</span></div>
-        <select id="select-cliente" onchange="preencherWhatsapp()">
+        <select id="client-select" onchange="fillClientData && fillClientData()">
           <option value="">— Selecione um cliente cadastrado —</option>
         </select>
         <div class="hint">Não encontrou? <a href="clientes.html">Cadastre aqui</a></div>
@@ -213,7 +213,8 @@
       <!-- WhatsApp -->
       <div class="field-group">
         <div class="field-label">WhatsApp do Cliente</div>
-        <input class="input-dark" id="whatsapp-cliente" type="text"
+        <input type="hidden" id="client-name" />
+        <input class="input-dark" id="client-phone" type="text"
                placeholder="Preenchido ao selecionar o cliente" readonly />
       </div>
 
@@ -303,19 +304,20 @@
           </label>
 
         </div>
+        <select id="service-category" style="display:none;"><option value="">Selecione...</option><option>Instalações</option><option>Reparos</option><option>Hidráulica</option><option>Elétrica</option><option>Pintura</option><option>Jardinagem</option><option>Outros</option></select>
       </div>
 
       <!-- Descrição -->
       <div class="field-group">
         <div class="field-label">Descrição do Serviço</div>
-        <textarea id="descricao-servico" style="width:100%;border:1px solid #ddd;border-radius:8px;padding:10px 13px;font-size:14px;min-height:90px;resize:vertical;outline:none;font-family:inherit;" placeholder="Descreva o serviço a ser realizado..."></textarea>
+        <textarea id="service-description" style="width:100%;border:1px solid #ddd;border-radius:8px;padding:10px 13px;font-size:14px;min-height:90px;resize:vertical;outline:none;font-family:inherit;" placeholder="Descreva o serviço a ser realizado..."></textarea>
       </div>
 
       <!-- Valor -->
       <div class="field-group">
         <div class="field-label">Valor do Serviço (R$)</div>
         <div class="valor-row">
-          <input class="input-dark-sm" id="valor-servico" type="text" placeholder="Ex: 350,00"
+          <input class="input-dark-sm" id="service-value" type="text" placeholder="Ex: 350,00"
                  oninput="formatarValor(this)" />
           <button class="scroll-btn" title="Rolar para baixo" onclick="window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'})">
             <svg viewBox="0 0 24 24"><path d="M12 16l-6-6h12z"/></svg>
@@ -336,12 +338,12 @@
           <div class="drop-text">Clique para adicionar fotos</div>
           <div class="drop-sub">JPG ou PNG · máximo 5 fotos · serão incluídas no orçamento</div>
         </div>
-        <input type="file" id="photo-input" accept="image/jpeg,image/png" multiple onchange="previewFotos(event)" />
-        <div class="photo-thumbs" id="photo-thumbs"></div>
+        <input type="file" id="service-photo" accept="image/jpeg,image/png" multiple onchange="previewFotos(event)" />
+        <div class="photo-thumbs" id="photo-preview-container"></div>
       </div>
       <!-- Botão Salvar -->
-      <div class="field-group" style="margin-top:8px;">
-        <button onclick="salvarRascunho()" style="background:#d36e2d;color:white;border:none;border-radius:8px;padding:12px 28px;font-size:15px;font-weight:600;cursor:pointer;width:100%;">
+      <div class="field-group btn-area" style="margin-top:8px;">
+        <button id="btn-save-draft" type="button" style="background:#d36e2d;color:white;border:none;border-radius:8px;padding:12px 28px;font-size:15px;font-weight:600;cursor:pointer;width:100%;">
           💾 Salvar OS
         </button>
       </div>
@@ -356,7 +358,7 @@
           O cliente receberá um link com os detalhes, fotos e botões para
           <strong>Aprovar</strong> ou <strong>Recusar</strong> o orçamento.
         </div>
-        <button class="btn-whats" onclick="enviarWhatsapp()">
+        <button class="btn-whats" id="btn-send-whatsapp" type="button">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
             <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
             <path d="M12 0C5.373 0 0 5.373 0 12c0 2.124.558 4.118 1.533 5.845L.057 23.485a.75.75 0 0 0 .916.916l5.64-1.476A11.953 11.953 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.98 0-3.835-.551-5.415-1.508l-.387-.232-4.02 1.053 1.053-4.02-.232-.387A9.96 9.96 0 0 1 2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
@@ -374,78 +376,18 @@
   <script>
     if (window.RSPAuth) window.RSPAuth.injectLogoutButton();
 
-    /* Carregar clientes do sistema */
-    function carregarClientes() {
-      const sel = document.getElementById('select-cliente');
-      const clientes = window._rspLS ? window._rspLS.getClients() : (JSON.parse(localStorage.getItem('rsp_clients') || '[]'));
-      sel.innerHTML = '<option value="">— Selecione um cliente cadastrado —</option>';
-      if (clientes.length === 0) {
-        sel.innerHTML += '<option disabled>Nenhum cliente cadastrado ainda</option>';
-        return;
-      }
-      clientes.sort((a,b) => (a.name||'').localeCompare(b.name||'')).forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.phone || c.whatsapp || '';
-        opt.textContent = c.name || c.nome || 'Cliente';
-        opt.dataset.nome = c.name || c.nome || '';
-        opt.dataset.phone = c.phone || c.whatsapp || '';
-        sel.appendChild(opt);
-      });
-    }
+    // ── Salvar e carregar clientes agora gerenciados pelo app.js initServiceForm ──
 
-    /* Salvar OS como rascunho */
-    async function salvarRascunho() {
-      const clienteEl = document.getElementById('select-cliente');
-      const cats = getCategoriasSelecionadas();
-      const valor = document.getElementById('valor-servico').value;
-      const desc = document.getElementById('descricao-servico') ? document.getElementById('descricao-servico').value : '';
-
-      if (!clienteEl.value) { alert('Selecione um cliente antes de salvar.'); return; }
-      if (cats.length === 0) { alert('Selecione ao menos uma categoria.'); return; }
-
-      const cliente = clienteEl.options[clienteEl.selectedIndex];
-      const order = {
-        id: Date.now().toString(),
-        client: cliente.dataset.nome || cliente.text,
-        phone: cliente.dataset.phone || clienteEl.value,
-        category: cats.join(', '),
-        description: desc,
-        value: valor,
-        status: 'pending',
-        date: new Date().toISOString()
-      };
-
-      // Desabilitar botão para evitar duplo clique
-      const btn = document.querySelector('button[onclick="salvarRascunho()"]');
-      if (btn) { btn.disabled = true; btn.textContent = '⏳ Salvando...'; }
-
-      if (window._persistOrder) {
-        try {
-          await window._persistOrder(order);
-          alert('✅ OS salva com sucesso!');
-          window.location.href = 'index.html';
-        } catch (err) {
-          console.error('Erro ao salvar OS no Firebase:', err);
-          alert('❌ Erro ao salvar OS: ' + (err.message || 'Falha na conexão com o servidor. Verifique as regras do Firestore.'));
-          if (btn) { btn.disabled = false; btn.textContent = '💾 Salvar OS'; }
-        }
-      } else {
-        // Firebase não disponível — avisa o usuário em vez de silenciar
-        console.warn('[RSP] window._persistOrder não definido. Firebase pode não ter carregado.');
-        alert('⚠️ Firebase não disponível. Verifique a conexão e recarregue a página.\n\nSe o problema persistir, verifique as Regras do Firestore no console do Firebase.');
-        if (btn) { btn.disabled = false; btn.textContent = '💾 Salvar OS'; }
-      }
-    }
-
-    // Carregar clientes ao iniciar
-    document.addEventListener('DOMContentLoaded', carregarClientes);
-
-    /* Marcar/desmarcar categoria */
+    /* Marcar/desmarcar categoria — sincroniza com select#service-category para app.js */
     function toggleCat(e, chip) {
       e.preventDefault();
       chip.classList.toggle('selected');
       const cb = chip.querySelector('input[type="checkbox"]');
       if (cb) cb.checked = chip.classList.contains('selected');
+      // Sincroniza select oculto com primeira categoria selecionada (app.js usa service-category)
+      const cats = getCategoriasSelecionadas();
+      const sel = document.getElementById('service-category');
+      if (sel) sel.value = cats.length > 0 ? cats[0] : '';
     }
 
     /* Retorna categorias selecionadas */
@@ -454,14 +396,7 @@
         .map(c => c.querySelector('input').value);
     }
 
-    /* Preenche WhatsApp ao selecionar cliente */
-    function preencherWhatsapp() {
-      const sel = document.getElementById('select-cliente');
-      const input = document.getElementById('whatsapp-cliente');
-      const opt = sel.options[sel.selectedIndex];
-      input.value = (opt && opt.dataset.phone) || sel.value || '';
-      input.placeholder = sel.value ? '' : 'Preenchido ao selecionar o cliente';
-    }
+
 
     /* Formatar valor como moeda brasileira */
     function formatarValor(el) {
@@ -489,28 +424,7 @@
       });
     }
 
-    /* Enviar via WhatsApp */
-    function enviarWhatsapp() {
-      const clienteEl = document.getElementById('select-cliente');
-      const whatsapp = document.getElementById('whatsapp-cliente').value.replace(/\D/g, '');
-      const cats = getCategoriasSelecionadas();
-      const valor = document.getElementById('valor-servico').value;
-
-      if (!clienteEl.value) { alert('Selecione um cliente antes de enviar.'); return; }
-      if (cats.length === 0) { alert('Selecione ao menos uma categoria de serviço.'); return; }
-      if (!whatsapp) { alert('WhatsApp do cliente não encontrado.'); return; }
-
-      const cliente = clienteEl.options[clienteEl.selectedIndex].text;
-      const msg = encodeURIComponent(
-        `Olá ${cliente}! Segue o orçamento dos serviços:\n` +
-        `📌 Categorias: ${cats.join(', ')}\n` +
-        (valor ? `💰 Valor: R$ ${valor}\n` : '') +
-        `\nPor favor, Aprove ou Recuse o orçamento pelo link abaixo:\n[LINK DO ORÇAMENTO]`
-      );
-
-      const numero = '55' + whatsapp;
-      window.open(`https://wa.me/${numero}?text=${msg}`, '_blank');
-    }
+    // ── enviarWhatsapp agora gerenciado pelo app.js btn-send-whatsapp listener ──
   </script>
 
 </body>

@@ -182,7 +182,20 @@ const LS = {
     },
 };
 
-// ─── Persist Order: localStorage imediato + Firebase background ────────────
+// ─── Aguarda Firebase estar pronto (até 5s) ─────────────────────────────────
+function waitForFirebase(timeoutMs) {
+    timeoutMs = timeoutMs || 5000;
+    return new Promise(function(resolve) {
+        if (db) { resolve(db); return; }
+        var start = Date.now();
+        var interval = setInterval(function() {
+            if (db) { clearInterval(interval); resolve(db); return; }
+            if (Date.now() - start > timeoutMs) { clearInterval(interval); resolve(null); }
+        }, 100);
+    });
+}
+
+// ─── Persist Order: localStorage imediato + Firebase com await ────────────
 async function persistOrder(orderData) {
     const id = String(orderData.id);
 
@@ -193,18 +206,24 @@ async function persistOrder(orderData) {
     LS.saveOrders(orders);
     console.log('💾 OS #' + id + ' salva local');
 
-    // 2. Firebase — aguarda confirmação para garantir que o cliente acesse
-    if (db) {
+    // 2. Aguarda Firebase estar pronto antes de salvar (corrige race condition)
+    const firestore = await waitForFirebase();
+    if (firestore) {
         try {
-            await db.collection('orders').doc(id).set(orderData);
+            await firestore.collection('orders').doc(id).set(orderData);
             console.log('☁️ OS #' + id + ' confirmada no Firebase');
             return true;
         } catch(e) {
             console.error('❌ Firebase OS FALHOU:', e.code, e.message);
-            showToast('⚠️ Salvo localmente. Firebase indisponível: ' + e.message, 'error', 8000);
+            if (e.code === 'permission-denied') {
+                showToast('⚠️ Permissão negada. Verifique as Regras do Firestore no console do Firebase.', 'error', 10000);
+            } else {
+                showToast('⚠️ Salvo localmente. Firebase indisponível: ' + e.message, 'error', 8000);
+            }
             return false;
         }
     }
+    console.warn('⚠️ Firebase não disponível após 5s — OS salva apenas localmente');
     return true;
 }
 
@@ -419,45 +438,42 @@ async function initDashboard() {
     // 1. Mostra cache local imediatamente (resposta visual rápida)
     renderOrders(LS.getOrders());
 
-    // 2. onSnapshot — escuta mudanças em TEMPO REAL no Firebase
-    //    Quando qualquer dispositivo exclui/cria/altera uma OS no Firebase,
-    //    TODOS os outros dispositivos com o dashboard aberto atualizam automaticamente.
-    if (db) {
-        db.collection('orders').onSnapshot(snap => {
-            // Firebase retorna exatamente o que existe na nuvem agora
-            // Se o celular excluiu → snap.docs não terá essa OS → PC remove também
-            const fromFirebase = snap.docs.map(d => d.data());
-
-            // Filtra apenas OS que este dispositivo excluiu localmente
-            // (evita race condition: excluiu localmente mas Firebase ainda não processou)
+    // 2. onSnapshot — aguarda Firebase pronto antes de registrar listener
+    waitForFirebase().then(function(firestore) {
+        if (!firestore) {
+            console.warn('⚠️ Firebase não conectou — dashboard em modo offline');
+            return;
+        }
+        firestore.collection('orders').onSnapshot(function(snap) {
+            const fromFirebase = snap.docs.map(function(d) { return d.data(); });
             var localDeleted = [];
             try { localDeleted = JSON.parse(localStorage.getItem('rsp_deleted_ids')) || []; } catch(e) {}
-            const toShow = fromFirebase.filter(o => localDeleted.indexOf(String(o.id)) === -1);
-
-            // ─── AUTORITATIVO: substitui localStorage completamente pelo Firebase ───
-            // Isso garante que exclusão feita no celular remove do PC também
+            const toShow = fromFirebase.filter(function(o) { return localDeleted.indexOf(String(o.id)) === -1; });
             localStorage.setItem('rsp_orders', JSON.stringify(toShow));
-
             renderOrders(toShow);
             console.log('🔴 onSnapshot: ' + toShow.length + ' OS · Firebase → PC sincronizado');
-
-        }, err => {
+        }, function(err) {
             console.warn('⚠️ onSnapshot erro:', err.message);
-            // Fallback sem tempo real
-            db.collection('orders').get()
-                .then(s => { const o = s.docs.map(d => d.data()); LS.saveOrders(o); renderOrders(o); })
-                .catch(() => {});
+            if (err.code === 'permission-denied') {
+                console.warn('⚠️ Permissão negada no onSnapshot. Verifique as Regras do Firestore.');
+                return;
+            }
+            // Fallback: leitura única
+            firestore.collection('orders').get()
+                .then(function(s) { const o = s.docs.map(function(d){return d.data();}); LS.saveOrders(o); renderOrders(o); })
+                .catch(function() {});
         });
-    }
+    });
 
     // 3. Sobe OS locais que ainda não estão no Firebase (apenas novas, nunca re-sobe deletadas)
-    setTimeout(() => _uploadLocalOnlyOrders(), 3000);
+    waitForFirebase().then(function() { _uploadLocalOnlyOrders(); });
 }
 
 // Sobe para o Firebase apenas OS que existem no local mas NÃO no Firebase
 // Nunca re-sobe OS que foram deletadas em outro dispositivo
 async function _uploadLocalOnlyOrders() {
-    if (!db) return;
+    const firestore = await waitForFirebase();
+    if (!firestore) return;
     var localDeleted = [];
     try { localDeleted = JSON.parse(localStorage.getItem('rsp_deleted_ids')) || []; } catch(e) {}
 
@@ -465,23 +481,28 @@ async function _uploadLocalOnlyOrders() {
     if (!local.length) return;
 
     try {
-        const snap = await db.collection('orders').get();
-        const remoteIds = new Set(snap.docs.map(d => d.id));
+        const snap = await firestore.collection('orders').get();
+        const remoteIds = new Set(snap.docs.map(function(d) { return d.id; }));
 
         for (const o of local) {
             const id = String(o.id);
-            // Só sobe se: não está no Firebase E não foi deletada
             if (!remoteIds.has(id) && localDeleted.indexOf(id) === -1) {
                 try {
-                    await db.collection('orders').doc(id).set(o);
+                    await firestore.collection('orders').doc(id).set(o);
                     console.log('⬆️ OS #' + id + ' enviada ao Firebase');
                 } catch(e) {
+                    if (e.code === 'permission-denied') {
+                        console.warn('⬆️ Permissão negada ao enviar OS #' + id + '. Verifique as Regras do Firestore.');
+                        break; // Sem tentar as demais se permissão negada
+                    }
                     console.warn('⬆️ Falha OS #' + id + ':', e.message);
                 }
             }
         }
     } catch(e) {
-        console.warn('_uploadLocalOnlyOrders:', e.message);
+        if (e.code !== 'permission-denied') {
+            console.warn('_uploadLocalOnlyOrders:', e.message);
+        }
     }
 }
 
