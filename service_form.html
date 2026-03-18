@@ -517,6 +517,12 @@
 
     /* ── Categorias — estáticas + suporte a novos via modal ── */
 
+    function getCategoriasSelecionadas() {
+      return Array.from(document.querySelectorAll('.cat-chip.selected'))
+        .map(function(c) { var cb = c.querySelector('input'); return cb ? cb.value : ''; })
+        .filter(Boolean);
+    }
+
     function toggleCat(e, chip) {
       e.preventDefault();
       chip.classList.toggle('selected');
@@ -572,6 +578,52 @@
     }
 
     // ── enviarWhatsapp agora gerenciado pelo app.js btn-send-whatsapp listener ──
+
+    function adicionarNovoChip(nome, icon) {
+      var grid = document.getElementById('cat-grid');
+      var sel  = document.getElementById('service-category');
+      if (!grid) return;
+      // Evita duplicata
+      if (Array.from(grid.querySelectorAll('input')).some(function(i){ return i.value === nome; })) return;
+      var chip = document.createElement('label');
+      chip.className = 'cat-chip';
+      chip.innerHTML =
+        '<input type="checkbox" value="' + nome + '">' +
+        '<span class="chip-icon">' + icon + '</span>' +
+        '<span class="chip-label">' + nome + '</span>' +
+        '<div class="chip-check"><svg class="checkmark" width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>' +
+        '<button type="button" class="cat-remove-btn" title="Remover serviço" onclick="removerChip(event, this)">✕</button>';
+      chip.addEventListener('click', function(e) {
+        if (e.target.classList && e.target.classList.contains('cat-remove-btn')) return;
+        e.preventDefault();
+        chip.classList.toggle('selected');
+        var cb = chip.querySelector('input[type="checkbox"]');
+        if (cb) cb.checked = chip.classList.contains('selected');
+        var cats = getCategoriasSelecionadas();
+        if (sel) sel.value = cats.length > 0 ? cats[0] : '';
+      });
+      grid.appendChild(chip);
+      if (sel) {
+        var opt = document.createElement('option');
+        opt.value = nome; opt.textContent = nome;
+        sel.appendChild(opt);
+      }
+      // Seleciona automaticamente
+      chip.classList.add('selected');
+      chip.querySelector('input').checked = true;
+      var cats = getCategoriasSelecionadas();
+      if (sel) sel.value = cats.length > 0 ? cats[0] : '';
+    }
+
+    function removerChip(e, btn) {
+      e.stopPropagation(); e.preventDefault();
+      var chip = btn.closest('.cat-chip');
+      var nome = chip.querySelector('input').value;
+      if (!confirm('Remover o serviço "' + nome + '"?')) return;
+      var sel = document.getElementById('service-category');
+      if (sel) Array.from(sel.options).forEach(function(o){ if(o.value===nome) o.remove(); });
+      chip.remove();
+    }
 
     /* ══ Modal: Novo Serviço ══ */
     var ICONS_MODAL = ['🔧','🛠️','💧','⚡','🖌️','🌿','📋','🔩','🪛','🪚',
