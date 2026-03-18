@@ -48,7 +48,6 @@
 
                     <hr style="border: none; border-top: 1px dashed #ccc; margin: 1.5rem 0;">
 
-<<<<<<< HEAD
                     <!-- URL Pública -->
                     <div class="form-group">
                         <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 600;">
@@ -85,7 +84,7 @@
                     <h3>Status do Link WhatsApp</h3>
                     <div id="url-status-box" style="margin-top: 1rem; border-radius: 8px; padding: 1rem;">
                         <!-- Preenchido pelo JS -->
-=======
+
                 <!-- ──────────────────────────────────────────────────────── -->
                 <!-- CAMPO CRÍTICO: URL pública do sistema                    -->
                 <!-- ──────────────────────────────────────────────────────── -->
@@ -112,7 +111,6 @@
                         &nbsp;•&nbsp;<a href="https://pages.github.com" target="_blank" style="color:var(--primary);font-weight:600;">GitHub Pages</a> — simples e gratuito<br>
                         &nbsp;•&nbsp;<a href="https://netlify.com" target="_blank" style="color:var(--primary);font-weight:600;">Netlify</a> — arraste e solte a pasta<br><br>
                         Após hospedar, cole aqui a URL gerada (ex: <code>https://rpssystem.web.app</code>).
->>>>>>> 0552d5fb5a74e40da79bdb36544731539663c3ce
                     </div>
                 </div>
 
@@ -250,7 +248,6 @@
             }
         }
 
-<<<<<<< HEAD
         // Dark mode
         function applyDarkMode(on) {
             document.body.classList.toggle('dark-mode', on);
@@ -260,7 +257,7 @@
             slider.style.backgroundColor = on ? '#f97316' : '#ccc';
             knob.style.transform = on ? 'translateX(22px)' : 'translateX(0)';
         }
-=======
+
     // Atualiza status quando o campo muda
     document.addEventListener('DOMContentLoaded', () => {
         setTimeout(updateUrlStatus, 300); // aguarda app.js carregar
@@ -304,7 +301,6 @@
 </script>
 
 <script>
-<<<<<<< HEAD
 function checkUrlFormat(input) {
     const val = input.value.trim();
     const warning = document.getElementById('url-format-warning');
@@ -320,8 +316,7 @@ function checkUrlFormat(input) {
     }
 }
 
-=======
->>>>>>> e3672084cfcf4234ee30e6f7220eb8fce394bdd8
+
 function updateThemeUI() {
     var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     var sw     = document.getElementById('theme-switch');
@@ -333,7 +328,6 @@ function updateThemeUI() {
 }
 document.addEventListener('DOMContentLoaded', updateThemeUI);
 </script>
->>>>>>> 0552d5fb5a74e40da79bdb36544731539663c3ce
 
         // Limpar cache
         function clearLocalCache() {
