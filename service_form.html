@@ -579,14 +579,23 @@
 
     // ── enviarWhatsapp agora gerenciado pelo app.js btn-send-whatsapp listener ──
 
-    function adicionarNovoChip(nome, icon) {
-      var grid = document.getElementById('cat-grid');
-      var sel  = document.getElementById('service-category');
-      if (!grid) return;
-      // Evita duplicata
-      if (Array.from(grid.querySelectorAll('input')).some(function(i){ return i.value === nome; })) return;
+    // ── Serviços extras: salva/lê no localStorage ──
+    var LS_KEY_SERVICOS = 'rsp_servicos_extras';
+
+    function getServicosExtras() {
+      try { return JSON.parse(localStorage.getItem(LS_KEY_SERVICOS)) || []; }
+      catch(_) { return []; }
+    }
+
+    function saveServicosExtras(lista) {
+      localStorage.setItem(LS_KEY_SERVICOS, JSON.stringify(lista));
+    }
+
+    function criarChipExtra(nome, icon) {
+      var sel = document.getElementById('service-category');
       var chip = document.createElement('label');
       chip.className = 'cat-chip';
+      chip.dataset.extra = '1';
       chip.innerHTML =
         '<input type="checkbox" value="' + nome + '">' +
         '<span class="chip-icon">' + icon + '</span>' +
@@ -602,15 +611,31 @@
         var cats = getCategoriasSelecionadas();
         if (sel) sel.value = cats.length > 0 ? cats[0] : '';
       });
-      grid.appendChild(chip);
       if (sel) {
         var opt = document.createElement('option');
         opt.value = nome; opt.textContent = nome;
         sel.appendChild(opt);
       }
+      return chip;
+    }
+
+    function adicionarNovoChip(nome, icon) {
+      var grid = document.getElementById('cat-grid');
+      if (!grid) return;
+      if (Array.from(grid.querySelectorAll('input')).some(function(i){ return i.value === nome; })) return;
+
+      var chip = criarChipExtra(nome, icon);
+      grid.appendChild(chip);
+
+      // Salva no localStorage
+      var extras = getServicosExtras();
+      extras.push({ nome: nome, icon: icon });
+      saveServicosExtras(extras);
+
       // Seleciona automaticamente
       chip.classList.add('selected');
       chip.querySelector('input').checked = true;
+      var sel = document.getElementById('service-category');
       var cats = getCategoriasSelecionadas();
       if (sel) sel.value = cats.length > 0 ? cats[0] : '';
     }
@@ -620,10 +645,35 @@
       var chip = btn.closest('.cat-chip');
       var nome = chip.querySelector('input').value;
       if (!confirm('Remover o serviço "' + nome + '"?')) return;
+      // Remove do localStorage
+      var extras = getServicosExtras().filter(function(s){ return s.nome !== nome; });
+      saveServicosExtras(extras);
+      // Remove do select oculto
       var sel = document.getElementById('service-category');
       if (sel) Array.from(sel.options).forEach(function(o){ if(o.value===nome) o.remove(); });
       chip.remove();
     }
+
+    // Carrega serviços extras — executa imediatamente se DOM pronto, ou aguarda
+    function carregarExtras() {
+      var extras = getServicosExtras();
+      if (!extras.length) return;
+      var grid = document.getElementById('cat-grid');
+      if (!grid) return;
+      extras.forEach(function(s) {
+        if (!Array.from(grid.querySelectorAll('input')).some(function(i){ return i.value === s.nome; })) {
+          grid.appendChild(criarChipExtra(s.nome, s.icon));
+        }
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', carregarExtras);
+    } else {
+      carregarExtras(); // DOM já pronto (script carregado depois do parse)
+    }
+    // Garante execução mesmo que app.js atrase o DOMContentLoaded
+    window.addEventListener('load', carregarExtras);
 
     /* ══ Modal: Novo Serviço ══ */
     var ICONS_MODAL = ['🔧','🛠️','💧','⚡','🖌️','🌿','📋','🔩','🪛','🪚',

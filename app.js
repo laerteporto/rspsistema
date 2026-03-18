@@ -752,20 +752,23 @@ async function initServiceForm() {
             const rawVal = parseFloat(String(ex.value || '0').replace(',', '.')) || 0;
             document.getElementById('service-value').value = rawVal.toFixed(2).replace('.', ',');
 
-            // ── Categorias — preenche os chips visuais E o select oculto ──
-            // Suporta tanto string simples ("Instalações") quanto múltipla ("Instalações, Reparos")
+            // ── Categorias — marca chips pelo valor (estático + extras) ──
             if (ex.category) {
-                const cats = ex.category.split(',').map(c => c.trim()).filter(Boolean);
-                document.querySelectorAll('.cat-chip').forEach(chip => {
-                    const cb = chip.querySelector('input[type="checkbox"]');
-                    if (cb && cats.indexOf(cb.value) !== -1) {
-                        chip.classList.add('selected');
-                        cb.checked = true;
-                    }
-                });
-                // Atualiza select oculto com a primeira categoria
-                const sel = document.getElementById('service-category');
-                if (sel) sel.value = cats[0] || '';
+                const cats = ex.category.split(',').map(function(c) { return c.trim(); }).filter(Boolean);
+                // Aguarda extras serem carregados antes de marcar
+                function marcarCats() {
+                    document.querySelectorAll('.cat-chip').forEach(function(chip) {
+                        const cb = chip.querySelector('input[type="checkbox"]');
+                        if (cb && cats.indexOf(cb.value) !== -1) {
+                            chip.classList.add('selected');
+                            cb.checked = true;
+                        }
+                    });
+                    const sel = document.getElementById('service-category');
+                    if (sel) sel.value = cats[0] || '';
+                }
+                // Pequeno delay para garantir que carregarExtras() já rodou
+                setTimeout(marcarCats, 50);
             }
 
             // ── Fotos ──
