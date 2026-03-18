@@ -444,30 +444,41 @@ async function initDashboard() {
     // 1. Mostra cache local imediatamente (resposta visual rápida)
     renderOrders(LS.getOrders());
 
-    // 2. onSnapshot — aguarda Firebase pronto antes de registrar listener
+    // 2. Busca imediata do Firebase — garante dados frescos em QUALQUER navegador
+    //    Isso resolve o problema de navegadores sem cache local desatualizado
     waitForFirebase().then(function(firestore) {
         if (!firestore) {
             console.warn('⚠️ Firebase não conectou — dashboard em modo offline');
             return;
         }
-        firestore.collection('orders').onSnapshot(function(snap) {
-            const fromFirebase = snap.docs.map(function(d) { return d.data(); });
+
+        // 2a. Leitura única imediata — renderiza antes do onSnapshot registrar
+        firestore.collection('orders').get().then(function(snap) {
             var localDeleted = [];
             try { localDeleted = JSON.parse(localStorage.getItem('rsp_deleted_ids')) || []; } catch(e) {}
-            const toShow = fromFirebase.filter(function(o) { return localDeleted.indexOf(String(o.id)) === -1; });
+            const fromFirebase = snap.docs.map(function(d) { return d.data(); })
+                .filter(function(o) { return localDeleted.indexOf(String(o.id)) === -1; });
+            localStorage.setItem('rsp_orders', JSON.stringify(fromFirebase));
+            renderOrders(fromFirebase);
+            console.log('📥 Firebase get(): ' + fromFirebase.length + ' OS carregadas');
+        }).catch(function(e) {
+            console.warn('⚠️ Firebase get() falhou:', e.message);
+        });
+
+        // 2b. onSnapshot — mantém sincronização em tempo real após a leitura inicial
+        firestore.collection('orders').onSnapshot(function(snap) {
+            var localDeleted = [];
+            try { localDeleted = JSON.parse(localStorage.getItem('rsp_deleted_ids')) || []; } catch(e) {}
+            const toShow = snap.docs.map(function(d) { return d.data(); })
+                .filter(function(o) { return localDeleted.indexOf(String(o.id)) === -1; });
             localStorage.setItem('rsp_orders', JSON.stringify(toShow));
             renderOrders(toShow);
-            console.log('🔴 onSnapshot: ' + toShow.length + ' OS · Firebase → PC sincronizado');
+            console.log('🔴 onSnapshot: ' + toShow.length + ' OS · Firebase → sincronizado');
         }, function(err) {
             console.warn('⚠️ onSnapshot erro:', err.message);
             if (err.code === 'permission-denied') {
                 console.warn('⚠️ Permissão negada no onSnapshot. Verifique as Regras do Firestore.');
-                return;
             }
-            // Fallback: leitura única
-            firestore.collection('orders').get()
-                .then(function(s) { const o = s.docs.map(function(d){return d.data();}); LS.saveOrders(o); renderOrders(o); })
-                .catch(function() {});
         });
     });
 
