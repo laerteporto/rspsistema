@@ -480,8 +480,10 @@
       try {
         const saved = JSON.parse(localStorage.getItem('rsp_categorias'));
         if (Array.isArray(saved) && saved.length) return saved;
+        // Se vazio ou inválido, reseta para os padrões
+        saveCategorias(CATS_DEFAULT.slice());
       } catch(_) {}
-      return CATS_DEFAULT;
+      return CATS_DEFAULT.slice();
     }
 
     function saveCategorias(cats) {
@@ -655,8 +657,15 @@ Ele pode ser restaurado limpando o cache nas Configurações.'
       sincronizarSelectCategoria();
     }
 
-    // Inicializa os chips ao carregar a página
+    // Inicializa os chips ao carregar a página — auto-corrige lista vazia
     document.addEventListener('DOMContentLoaded', function() {
+      // Se o localStorage ficou com lista vazia por algum motivo, restaura os padrões
+      try {
+        var saved = JSON.parse(localStorage.getItem('rsp_categorias'));
+        if (!Array.isArray(saved) || saved.length === 0) {
+          localStorage.removeItem('rsp_categorias'); // força recarga dos padrões
+        }
+      } catch(_) { localStorage.removeItem('rsp_categorias'); }
       renderCategoryChips();
     });
 
