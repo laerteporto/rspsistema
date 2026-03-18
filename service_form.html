@@ -157,19 +157,20 @@
     .checkmark { display: none; }
     .cat-chip.selected .checkmark { display: block; }
 
-    /* Botão remover chip (serviços personalizados) */
+    /* Botão remover chip */
+    .cat-chip { position: relative; }
     .cat-remove-btn {
-      position: absolute; top: 4px; right: 4px;
-      width: 18px; height: 18px; border-radius: 50%;
-      background: rgba(0,0,0,0.15); color: #555;
-      border: none; font-size: 9px; font-weight: 700;
+      position: absolute; top: 5px; right: 5px;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: transparent; color: #ccc;
+      border: 1.5px solid #ddd; font-size: 10px; font-weight: 700;
       cursor: pointer; display: flex; align-items: center;
       justify-content: center; line-height: 1;
-      transition: background .15s, color .15s;
+      opacity: 0; transition: opacity .15s, background .15s, color .15s, border-color .15s;
       z-index: 2; padding: 0;
     }
-    .cat-remove-btn:hover { background: #c62828; color: white; }
-    .cat-chip { position: relative; }
+    .cat-chip:hover .cat-remove-btn { opacity: 1; }
+    .cat-remove-btn:hover { background: #c62828; color: white; border-color: #c62828; }
 
     /* ── Valor row ── */
     .valor-row { display: flex; align-items: center; gap: 14px; }
@@ -633,8 +634,14 @@
 
     function removerCategoria(e, nome) {
       e.stopPropagation(); e.preventDefault();
-      if (!confirm('Remover o serviço "' + nome + '"?')) return;
-      let cats = getCategorias().filter(function(c) { return c.nome !== nome; });
+      var isPadrao = CATS_DEFAULT.some(function(c) { return c.nome === nome; });
+      var msg = isPadrao
+        ? 'Remover o serviço padrão "' + nome + '"?
+
+Ele pode ser restaurado limpando o cache nas Configurações.'
+        : 'Remover o serviço "' + nome + '"?';
+      if (!confirm(msg)) return;
+      var cats = getCategorias().filter(function(c) { return c.nome !== nome; });
       saveCategorias(cats);
       renderCategoryChips(getCategoriasSelecionadas().filter(function(s) { return s !== nome; }));
     }
