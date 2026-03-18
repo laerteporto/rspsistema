@@ -457,6 +457,22 @@
   <script>
     if (window.RSPAuth) window.RSPAuth.injectLogoutButton();
 
+    /* ── Proteção: corrige rsp_categorias corrompido/vazio IMEDIATAMENTE ── */
+    (function() {
+      try {
+        var raw = localStorage.getItem('rsp_categorias');
+        if (raw !== null) {
+          var parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed) || parsed.length === 0) {
+            localStorage.removeItem('rsp_categorias');
+            console.log('🔧 rsp_categorias corrompido — restaurando padrões');
+          }
+        }
+      } catch(_) {
+        localStorage.removeItem('rsp_categorias');
+      }
+    })();
+
     // ── Salvar e carregar clientes agora gerenciados pelo app.js initServiceForm ──
 
     /* ══════════════════════════════════════════════════
