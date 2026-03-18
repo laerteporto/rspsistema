@@ -109,16 +109,23 @@
             font-size:.7rem;text-transform:uppercase;letter-spacing:.8px;
             color:#9a958e;font-weight:600;margin-bottom:.65rem;
         }
-        .photos-grid{display:flex;flex-wrap:wrap;gap:.65rem}
+        .photos-grid{
+            display:grid;
+            grid-template-columns:repeat(3,1fr);
+            gap:.65rem;
+            margin-top:.5rem;
+        }
         .photos-grid img{
-            width:85px;height:85px;
+            width:100%;
+            aspect-ratio:1/1;
             object-fit:cover;
-            border-radius:8px;
+            border-radius:10px;
             border:2px solid #e2e0da;
             cursor:pointer;
             transition:all .2s ease;
+            display:block;
         }
-        .photos-grid img:hover{border-color:#d36e2d;transform:scale(1.05)}
+        .photos-grid img:hover{border-color:#d36e2d;transform:scale(1.03);box-shadow:0 4px 12px rgba(0,0,0,.15)}
 
         /* ── Botões de ação ── */
         .action-buttons{display:flex;flex-direction:column;gap:.75rem;margin-top:2rem}
@@ -272,6 +279,7 @@ function toast(msg, type='info', ms=4000){
 }
 
 function openLb(src){ document.getElementById('lb-img').src=src; document.getElementById('lightbox').classList.add('open'); }
+function openLbIdx(i){ const src = (window._rspPhotos||[])[i]; if(src) openLb(src); }
 function closeLb(){ document.getElementById('lightbox').classList.remove('open'); }
 
 // ── Inicializa Firebase ───────────────────────────────────────────────────
@@ -371,10 +379,13 @@ function renderOrder(order) {
     if (order.status === 'approved') { badgeCls = 'badge-approved'; badgeTxt = '✅ Aprovado'; }
     if (order.status === 'rejected') { badgeCls = 'badge-rejected'; badgeTxt = '❌ Recusado'; }
 
-    // Fotos
+    // Fotos — usa índice no onclick para evitar problema com base64 longo em atributo HTML
     let photosHtml = '';
+    window._rspPhotos = photos; // expõe para o lightbox
     if (photos.length) {
-        const imgs = photos.map((p,i) => `<img src="${p}" alt="Foto ${i+1}" onclick="openLb('${p}')" loading="lazy">`).join('');
+        const imgs = photos.map((p,i) =>
+            `<img src="${p}" alt="Foto ${i+1}" onclick="openLbIdx(${i})" loading="lazy">`
+        ).join('');
         photosHtml = `
             <div class="photos-section">
                 <div class="box-label">📷 Fotos do Serviço (${photos.length})</div>

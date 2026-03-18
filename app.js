@@ -635,16 +635,55 @@ async function initServiceForm() {
         }
     };
 
+    // ── Comprime imagem via Canvas antes de salvar (evita limite 1MB do Firestore) ──
+    function compressImage(file, maxWidth, maxHeight, quality) {
+        maxWidth  = maxWidth  || 800;
+        maxHeight = maxHeight || 800;
+        quality   = quality   || 0.72;
+        return new Promise(function(resolve) {
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                const img = new Image();
+                img.onload = function() {
+                    let w = img.width, h = img.height;
+                    // Redimensiona mantendo proporção
+                    if (w > maxWidth || h > maxHeight) {
+                        const ratio = Math.min(maxWidth / w, maxHeight / h);
+                        w = Math.round(w * ratio);
+                        h = Math.round(h * ratio);
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w; canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    const compressed = canvas.toDataURL('image/jpeg', quality);
+                    console.log('📷 Foto comprimida: ' +
+                        Math.round(ev.target.result.length / 1024) + 'KB → ' +
+                        Math.round(compressed.length / 1024) + 'KB');
+                    resolve(compressed);
+                };
+                img.src = ev.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
     if (photoInput) {
-        photoInput.addEventListener('change', e => {
+        photoInput.addEventListener('change', async function(e) {
             const files = Array.from(e.target.files);
             const slots = 5 - photos.length;
             if (slots <= 0) { showToast('Máximo de 5 fotos já atingido.', 'error'); photoInput.value = ''; return; }
-            files.slice(0, slots).forEach(file => {
-                const r = new FileReader();
-                r.onload = ev => { photos.push(ev.target.result); renderThumb(ev.target.result); updateCount(); };
-                r.readAsDataURL(file);
-            });
+            const toProcess = files.slice(0, slots);
+            for (const file of toProcess) {
+                try {
+                    const compressed = await compressImage(file);
+                    photos.push(compressed);
+                    renderThumb(compressed);
+                    updateCount();
+                } catch(err) {
+                    console.warn('Erro ao processar foto:', err);
+                    showToast('⚠️ Erro ao carregar foto: ' + file.name, 'error');
+                }
+            }
             photoInput.value = '';
         });
     }
