@@ -21,12 +21,14 @@
         setTheme(current === 'dark' ? 'light' : 'dark');
     };
 
-    // Injeta o botão na navbar quando o DOM estiver pronto
+    // Injeta o botão APENAS na página de configurações
     function injectToggleButton() {
+        var page = window.location.pathname.split('/').pop() || '';
+        if (page !== 'configuracoes.html') return; // só injeta em configurações
+
         var navLinks = document.querySelector('.navbar .nav-links');
         if (!navLinks) return;
-        // Evita duplicatas
-        if (navLinks.querySelector('.dark-toggle')) return;
+        if (navLinks.querySelector('.dark-toggle')) return; // evita duplicatas
 
         var btn = document.createElement('button');
         btn.className = 'dark-toggle';

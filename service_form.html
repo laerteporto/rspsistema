@@ -259,6 +259,8 @@
     .btn-secondary:hover { background: #fff4ec; }
     .btn-secondary:disabled { opacity: 0.6; cursor: not-allowed; }
 
+
+
     /* ── Responsive ── */
     @media (max-width: 768px) {
       .content { grid-template-columns: 1fr; }
@@ -415,7 +417,7 @@
       <!-- Fotos -->
       <div class="field-group">
         <div class="field-label">Fotos do Serviço</div>
-        <div class="photo-drop" onclick="document.getElementById('photo-input').click()">
+        <div class="photo-drop" onclick="document.getElementById('service-photo').click()">
           <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
             <rect width="36" height="36" rx="8" fill="#fff4ec"/>
             <path d="M11 25l5-6 4 5 3-3 4 4" stroke="#e07b39" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -425,11 +427,12 @@
           <div class="drop-text">Clique para adicionar fotos</div>
           <div class="drop-sub">JPG ou PNG · máximo 5 fotos · serão incluídas no orçamento</div>
         </div>
-        <input type="file" id="service-photo" accept="image/jpeg,image/png" multiple onchange="previewFotos(event)" />
+        <input type="file" id="service-photo" accept="image/jpeg,image/png" multiple />
         <button type="button" class="btn-arquivo" onclick="document.getElementById('service-photo').click()">
           📎 Escolher arquivos
         </button>
         <div class="photo-thumbs" id="photo-preview-container"></div>
+        <span id="photo-count-label" style="font-size:12px;color:#888;margin-top:6px;display:block;"></span>
       </div>
       <!-- Botão Salvar -->
       <div class="field-group btn-area" style="margin-top:8px;">
