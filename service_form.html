@@ -191,7 +191,6 @@
       <a href="clientes.html" class="nav-link">Clientes</a>
       <a href="reports.html" class="nav-link">Relatórios</a>
       <a href="configuracoes.html" class="nav-link">Configurações</a>
-      <span class="nav-user">👤 Laerte · Sair</span>
     </div>
   </nav>
 
@@ -207,11 +206,8 @@
         <div class="field-label">Cliente <span class="req">*</span></div>
         <select id="select-cliente" onchange="preencherWhatsapp()">
           <option value="">— Selecione um cliente cadastrado —</option>
-          <option value="(62) 99999-0001">João da Silva</option>
-          <option value="(62) 99999-0002">Maria Oliveira</option>
-          <option value="(62) 99999-0003">Carlos Mendes</option>
         </select>
-        <div class="hint">Não encontrou? <a href="#">Cadastre aqui</a></div>
+        <div class="hint">Não encontrou? <a href="clientes.html">Cadastre aqui</a></div>
       </div>
 
       <!-- WhatsApp -->
@@ -309,6 +305,12 @@
         </div>
       </div>
 
+      <!-- Descrição -->
+      <div class="field-group">
+        <div class="field-label">Descrição do Serviço</div>
+        <textarea id="descricao-servico" style="width:100%;border:1px solid #ddd;border-radius:8px;padding:10px 13px;font-size:14px;min-height:90px;resize:vertical;outline:none;font-family:inherit;" placeholder="Descreva o serviço a ser realizado..."></textarea>
+      </div>
+
       <!-- Valor -->
       <div class="field-group">
         <div class="field-label">Valor do Serviço (R$)</div>
@@ -337,6 +339,12 @@
         <input type="file" id="photo-input" accept="image/jpeg,image/png" multiple onchange="previewFotos(event)" />
         <div class="photo-thumbs" id="photo-thumbs"></div>
       </div>
+      <!-- Botão Salvar -->
+      <div class="field-group" style="margin-top:8px;">
+        <button onclick="salvarRascunho()" style="background:#d36e2d;color:white;border:none;border-radius:8px;padding:12px 28px;font-size:15px;font-weight:600;cursor:pointer;width:100%;">
+          💾 Salvar OS
+        </button>
+      </div>
     </div>
 
     <!-- Sidebar -->
@@ -363,8 +371,64 @@
   <script src="darkmode.js"></script>
   <script src="auth.js"></script>
   <script src="app.js"></script>
-
   <script>
+    if (window.RSPAuth) window.RSPAuth.injectLogoutButton();
+
+    /* Carregar clientes do sistema */
+    function carregarClientes() {
+      const sel = document.getElementById('select-cliente');
+      const clientes = window._rspLS ? window._rspLS.getClients() : (JSON.parse(localStorage.getItem('rsp_clients') || '[]'));
+      sel.innerHTML = '<option value="">— Selecione um cliente cadastrado —</option>';
+      if (clientes.length === 0) {
+        sel.innerHTML += '<option disabled>Nenhum cliente cadastrado ainda</option>';
+        return;
+      }
+      clientes.sort((a,b) => (a.name||'').localeCompare(b.name||'')).forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.phone || c.whatsapp || '';
+        opt.textContent = c.name || c.nome || 'Cliente';
+        opt.dataset.nome = c.name || c.nome || '';
+        opt.dataset.phone = c.phone || c.whatsapp || '';
+        sel.appendChild(opt);
+      });
+    }
+
+    /* Salvar OS como rascunho */
+    function salvarRascunho() {
+      const clienteEl = document.getElementById('select-cliente');
+      const cats = getCategoriasSelecionadas();
+      const valor = document.getElementById('valor-servico').value;
+      const desc = document.getElementById('descricao-servico') ? document.getElementById('descricao-servico').value : '';
+      if (!clienteEl.value) { alert('Selecione um cliente antes de salvar.'); return; }
+      if (cats.length === 0) { alert('Selecione ao menos uma categoria.'); return; }
+      const cliente = clienteEl.options[clienteEl.selectedIndex];
+      const order = {
+        id: Date.now().toString(),
+        client: cliente.dataset.nome || cliente.text,
+        phone: cliente.dataset.phone || clienteEl.value,
+        category: cats.join(', '),
+        description: desc,
+        value: valor,
+        status: 'pending',
+        date: new Date().toISOString()
+      };
+      if (window._persistOrder) {
+        window._persistOrder(order).then(() => {
+          alert('✅ OS salva com sucesso!');
+          window.location.href = 'index.html';
+        });
+      } else {
+        const orders = JSON.parse(localStorage.getItem('rsp_orders') || '[]');
+        orders.push(order);
+        localStorage.setItem('rsp_orders', JSON.stringify(orders));
+        alert('✅ OS salva com sucesso!');
+        window.location.href = 'index.html';
+      }
+    }
+
+    // Carregar clientes ao iniciar
+    document.addEventListener('DOMContentLoaded', carregarClientes);
+
     /* Marcar/desmarcar categoria */
     function toggleCat(chip) {
       chip.classList.toggle('selected');
@@ -373,7 +437,7 @@
     }
 
     /* Retorna categorias selecionadas */
-    function getCategoriаsSelecionadas() {
+    function getCategoriasSelecionadas() {
       return Array.from(document.querySelectorAll('.cat-chip.selected'))
         .map(c => c.querySelector('input').value);
     }
@@ -382,7 +446,8 @@
     function preencherWhatsapp() {
       const sel = document.getElementById('select-cliente');
       const input = document.getElementById('whatsapp-cliente');
-      input.value = sel.value || '';
+      const opt = sel.options[sel.selectedIndex];
+      input.value = (opt && opt.dataset.phone) || sel.value || '';
       input.placeholder = sel.value ? '' : 'Preenchido ao selecionar o cliente';
     }
 
@@ -416,7 +481,7 @@
     function enviarWhatsapp() {
       const clienteEl = document.getElementById('select-cliente');
       const whatsapp = document.getElementById('whatsapp-cliente').value.replace(/\D/g, '');
-      const cats = getCategoriаsSelecionadas();
+      const cats = getCategoriasSelecionadas();
       const valor = document.getElementById('valor-servico').value;
 
       if (!clienteEl.value) { alert('Selecione um cliente antes de enviar.'); return; }
