@@ -328,11 +328,65 @@
           Categorias do Serviço <span class="req">*</span>
           <span class="sub">(selecione uma ou mais)</span>
         </div>
-        <!-- Grid dinâmico — renderizado por renderCategoryChips() -->
-        <div class="cat-grid" id="cat-grid"></div>
-        <select id="service-category" style="display:none;"></select>
+        <div class="cat-grid" id="cat-grid">
 
-        <!-- Link para abrir modal de novo serviço -->
+          <label class="cat-chip" onclick="toggleCat(event, this)">
+            <input type="checkbox" value="Instalações">
+            <span class="chip-icon">🔧</span>
+            <span class="chip-label">Instalações</span>
+            <div class="chip-check"><svg class="checkmark" width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          </label>
+
+          <label class="cat-chip" onclick="toggleCat(event, this)">
+            <input type="checkbox" value="Reparos">
+            <span class="chip-icon">🛠️</span>
+            <span class="chip-label">Reparos</span>
+            <div class="chip-check"><svg class="checkmark" width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          </label>
+
+          <label class="cat-chip" onclick="toggleCat(event, this)">
+            <input type="checkbox" value="Hidráulica">
+            <span class="chip-icon">💧</span>
+            <span class="chip-label">Hidráulica</span>
+            <div class="chip-check"><svg class="checkmark" width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          </label>
+
+          <label class="cat-chip" onclick="toggleCat(event, this)">
+            <input type="checkbox" value="Elétrica">
+            <span class="chip-icon">⚡</span>
+            <span class="chip-label">Elétrica</span>
+            <div class="chip-check"><svg class="checkmark" width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          </label>
+
+          <label class="cat-chip" onclick="toggleCat(event, this)">
+            <input type="checkbox" value="Pintura">
+            <span class="chip-icon">🖌️</span>
+            <span class="chip-label">Pintura</span>
+            <div class="chip-check"><svg class="checkmark" width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          </label>
+
+          <label class="cat-chip" onclick="toggleCat(event, this)">
+            <input type="checkbox" value="Jardinagem">
+            <span class="chip-icon">🌿</span>
+            <span class="chip-label">Jardinagem</span>
+            <div class="chip-check"><svg class="checkmark" width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          </label>
+
+          <label class="cat-chip" onclick="toggleCat(event, this)">
+            <input type="checkbox" value="Outros">
+            <span class="chip-icon">📋</span>
+            <span class="chip-label">Outros</span>
+            <div class="chip-check"><svg class="checkmark" width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          </label>
+
+        </div>
+        <select id="service-category" style="display:none;">
+          <option value="">Selecione...</option>
+          <option>Instalações</option><option>Reparos</option><option>Hidráulica</option>
+          <option>Elétrica</option><option>Pintura</option><option>Jardinagem</option><option>Outros</option>
+        </select>
+
+        <!-- Link para adicionar novo serviço -->
         <div class="hint" style="margin-top:10px;">
           <a href="#" onclick="abrirModalServico(); return false;">+ Adicionar novo serviço</a>
         </div>
@@ -457,233 +511,24 @@
   <script>
     if (window.RSPAuth) window.RSPAuth.injectLogoutButton();
 
-    /* ── Proteção: corrige rsp_categorias corrompido/vazio IMEDIATAMENTE ── */
-    (function() {
-      try {
-        var raw = localStorage.getItem('rsp_categorias');
-        if (raw !== null) {
-          var parsed = JSON.parse(raw);
-          if (!Array.isArray(parsed) || parsed.length === 0) {
-            localStorage.removeItem('rsp_categorias');
-            console.log('🔧 rsp_categorias corrompido — restaurando padrões');
-          }
-        }
-      } catch(_) {
-        localStorage.removeItem('rsp_categorias');
-      }
-    })();
+
 
     // ── Salvar e carregar clientes agora gerenciados pelo app.js initServiceForm ──
 
-    /* ══════════════════════════════════════════════════
-       CATEGORIAS DINÂMICAS — salvas no localStorage
-       ══════════════════════════════════════════════════ */
+    /* ── Categorias — estáticas + suporte a novos via modal ── */
 
-    const CATS_DEFAULT = [
-      { nome: 'Instalações', icon: '🔧' },
-      { nome: 'Reparos',     icon: '🛠️' },
-      { nome: 'Hidráulica',  icon: '💧' },
-      { nome: 'Elétrica',    icon: '⚡' },
-      { nome: 'Pintura',     icon: '🖌️' },
-      { nome: 'Jardinagem',  icon: '🌿' },
-      { nome: 'Outros',      icon: '📋' },
-    ];
-
-    // Ícones automáticos para novos serviços (rotação)
-    const ICONS_POOL = ['🔩','🪛','🪚','🏗️','🧱','🪟','🚿','🔌','💡','🧹','🪴','🛁','🚪','🧰','⚙️'];
-
-    function getCategorias() {
-      try {
-        const saved = JSON.parse(localStorage.getItem('rsp_categorias'));
-        if (Array.isArray(saved) && saved.length) return saved;
-        // Se vazio ou inválido, reseta para os padrões
-        saveCategorias(CATS_DEFAULT.slice());
-      } catch(_) {}
-      return CATS_DEFAULT.slice();
-    }
-
-    function saveCategorias(cats) {
-      localStorage.setItem('rsp_categorias', JSON.stringify(cats));
-    }
-
-    function checkmarkSVG() {
-      return `<svg class="checkmark" width="10" height="8" viewBox="0 0 10 8" fill="none">
-        <path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>`;
-    }
-
-    function renderCategoryChips(selectedList) {
-      selectedList = selectedList || [];
-      const grid = document.getElementById('cat-grid');
-      const sel  = document.getElementById('service-category');
-      if (!grid) return;
-      const cats = getCategorias();
-      grid.innerHTML = '';
-      if (sel) {
-        sel.innerHTML = '<option value="">Selecione...</option>';
-        cats.forEach(c => {
-          const opt = document.createElement('option');
-          opt.value = c.nome; opt.textContent = c.nome;
-          sel.appendChild(opt);
-        });
-      }
-      cats.forEach(function(cat, idx) {
-        const isSelected = selectedList.indexOf(cat.nome) !== -1;
-        const chip = document.createElement('label');
-        chip.className = 'cat-chip' + (isSelected ? ' selected' : '');
-        chip.innerHTML = `
-          <input type="checkbox" value="${cat.nome}" ${isSelected ? 'checked' : ''}>
-          <span class="chip-icon">${cat.icon}</span>
-          <span class="chip-label">${cat.nome}</span>
-          <div class="chip-check">${checkmarkSVG()}</div>
-          ${idx >= CATS_DEFAULT.length
-            ? `<button type="button" class="cat-remove-btn" title="Remover serviço" onclick="removerCategoria(event, '${cat.nome.replace(/'/g,"\'")}')">✕</button>`
-            : ''}`;
-        chip.addEventListener('click', function(e) {
-          if (e.target.classList.contains('cat-remove-btn')) return;
-          e.preventDefault();
-          chip.classList.toggle('selected');
-          const cb = chip.querySelector('input[type="checkbox"]');
-          if (cb) cb.checked = chip.classList.contains('selected');
-          sincronizarSelectCategoria();
-        });
-        grid.appendChild(chip);
-      });
-      sincronizarSelectCategoria();
-    }
-
-    function sincronizarSelectCategoria() {
-      const cats = getCategoriasSelecionadas();
-      const sel = document.getElementById('service-category');
-      if (sel) sel.value = cats.length > 0 ? cats[0] : '';
-    }
-
-    function getCategoriasSelecionadas() {
-      return Array.from(document.querySelectorAll('.cat-chip.selected'))
-        .map(function(c) { const cb = c.querySelector('input'); return cb ? cb.value : ''; })
-        .filter(Boolean);
-    }
-
-    /* ── Modal Novo Serviço ── */
-    var ICONS_MODAL = ['🔧','🛠️','💧','⚡','🖌️','🌿','📋','🔩','🪛','🪚','🏗️','🧱',
-                       '🪟','🚿','🔌','💡','🧹','🪴','🛁','🚪','🧰','⚙️','🏠','🔨'];
-
-    function abrirModalServico() {
-      // Popula icon picker
-      var picker = document.getElementById('icon-picker');
-      if (picker && picker.children.length === 0) {
-        ICONS_MODAL.forEach(function(ic) {
-          var btn = document.createElement('button');
-          btn.type = 'button';
-          btn.textContent = ic;
-          btn.title = ic;
-          btn.style.cssText = 'width:38px;height:38px;border:1.5px solid #e0ddd6;border-radius:8px;background:white;font-size:18px;cursor:pointer;transition:all .15s;';
-          btn.onclick = function() {
-            document.getElementById('modal-cat-icon').value = ic;
-            picker.querySelectorAll('button').forEach(function(b) {
-              b.style.borderColor = '#e0ddd6';
-              b.style.background  = 'white';
-            });
-            btn.style.borderColor = '#e07b39';
-            btn.style.background  = '#fff4ec';
-          };
-          picker.appendChild(btn);
-        });
-        // Seleciona o primeiro por padrão
-        picker.querySelector('button').click();
-      }
-      var modal = document.getElementById('modal-servico');
-      modal.style.display = 'flex';
-      document.getElementById('modal-cat-nome').value = '';
-      document.getElementById('modal-cat-erro').style.display = 'none';
-      setTimeout(function() { document.getElementById('modal-cat-nome').focus(); }, 100);
-    }
-
-    function fecharModalServico() {
-      document.getElementById('modal-servico').style.display = 'none';
-    }
-
-    function salvarModalServico() {
-      var nome = (document.getElementById('modal-cat-nome').value || '').trim();
-      var icon = document.getElementById('modal-cat-icon').value || '🔧';
-      var erroEl = document.getElementById('modal-cat-erro');
-
-      if (!nome) {
-        erroEl.textContent = 'Informe o nome do serviço.';
-        erroEl.style.display = 'block';
-        document.getElementById('modal-cat-nome').focus();
-        return;
-      }
-
-      var cats = getCategorias();
-      if (cats.some(function(c) { return c.nome.toLowerCase() === nome.toLowerCase(); })) {
-        erroEl.textContent = 'Já existe um serviço com este nome.';
-        erroEl.style.display = 'block';
-        return;
-      }
-
-      cats.push({ nome: nome, icon: icon });
-      saveCategorias(cats);
-
-      var jaSelected = getCategoriasSelecionadas();
-      renderCategoryChips(jaSelected);
-
-      // Seleciona automaticamente o novo chip
-      var newChip = Array.from(document.querySelectorAll('.cat-chip'))
-        .find(function(c) { var cb = c.querySelector('input'); return cb && cb.value === nome; });
-      if (newChip) {
-        newChip.classList.add('selected');
-        var cb = newChip.querySelector('input');
-        if (cb) cb.checked = true;
-        sincronizarSelectCategoria();
-      }
-
-      fecharModalServico();
-    }
-
-    // Fecha modal ao clicar no overlay
-    document.addEventListener('click', function(e) {
-      var modal = document.getElementById('modal-servico');
-      if (modal && e.target === modal) fecharModalServico();
-    });
-
-    // Mantém compatibilidade com chamadas antigas
-    function adicionarCategoria() { abrirModalServico(); }
-
-    function removerCategoria(e, nome) {
-      e.stopPropagation(); e.preventDefault();
-      var isPadrao = CATS_DEFAULT.some(function(c) { return c.nome === nome; });
-      var msg = isPadrao
-        ? 'Remover o serviço padrão "' + nome + '"?
-
-Ele pode ser restaurado limpando o cache nas Configurações.'
-        : 'Remover o serviço "' + nome + '"?';
-      if (!confirm(msg)) return;
-      var cats = getCategorias().filter(function(c) { return c.nome !== nome; });
-      saveCategorias(cats);
-      renderCategoryChips(getCategoriasSelecionadas().filter(function(s) { return s !== nome; }));
-    }
-
-    /* Mantém toggleCat para compatibilidade com app.js */
     function toggleCat(e, chip) {
       e.preventDefault();
       chip.classList.toggle('selected');
       const cb = chip.querySelector('input[type="checkbox"]');
       if (cb) cb.checked = chip.classList.contains('selected');
-      sincronizarSelectCategoria();
+      // Sincroniza select oculto com primeira categoria selecionada
+      const cats = getCategoriasSelecionadas();
+      const sel = document.getElementById('service-category');
+      if (sel) sel.value = cats.length > 0 ? cats[0] : '';
     }
 
-    // Inicializa os chips ao carregar a página — auto-corrige lista vazia
-    document.addEventListener('DOMContentLoaded', function() {
-      // Se o localStorage ficou com lista vazia por algum motivo, restaura os padrões
-      try {
-        var saved = JSON.parse(localStorage.getItem('rsp_categorias'));
-        if (!Array.isArray(saved) || saved.length === 0) {
-          localStorage.removeItem('rsp_categorias'); // força recarga dos padrões
-        }
-      } catch(_) { localStorage.removeItem('rsp_categorias'); }
-      renderCategoryChips();
-    });
+
 
 
 
