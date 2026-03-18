@@ -1382,11 +1382,9 @@ function initConfigPage() {
             publicUrl:   FIXED_PUBLIC_URL,   // sempre fixa, ignora o que estiver no campo
         });
         if (pubEl) pubEl.value = FIXED_PUBLIC_URL; // garante exibição correta
-            publicUrl:   cleanUrl,
         });
 
         // Atualiza o campo com a URL limpa para o usuário ver
-        if (pubUrl) pubUrl.value = cleanUrl;
         showToast('✅ Configurações salvas!', 'success');
     });
 }
