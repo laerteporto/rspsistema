@@ -84,20 +84,50 @@
     }
     select:focus { border-color: #e07b39; box-shadow: 0 0 0 3px rgba(224,123,57,0.12); }
 
-    /* Dark inputs */
+    /* Inputs padrão claro */
     .input-dark {
-      width: 100%; background: #2b2b2b; color: #aaa;
-      border: none; border-radius: 8px; padding: 13px 16px;
-      font-size: 15px; outline: none;
+      width: 100%; background: #f5f3ef; color: #444;
+      border: 1px solid #ddd; border-radius: 8px; padding: 13px 16px;
+      font-size: 15px; outline: none; transition: border-color 0.15s;
     }
-    .input-dark::placeholder { color: #777; }
+    .input-dark:focus { border-color: #e07b39; box-shadow: 0 0 0 3px rgba(224,123,57,0.12); }
+    .input-dark::placeholder { color: #aaa; }
 
     .input-dark-sm {
-      background: #2b2b2b; color: #aaa; border: none;
+      background: #f5f3ef; color: #444; border: 1px solid #ddd;
       border-radius: 8px; padding: 13px 16px; font-size: 15px;
-      outline: none; width: 200px;
+      outline: none; width: 200px; transition: border-color 0.15s;
     }
-    .input-dark-sm::placeholder { color: #777; }
+    .input-dark-sm:focus { border-color: #e07b39; }
+    .input-dark-sm::placeholder { color: #aaa; }
+
+    /* Botão padrão do sistema */
+    .btn-sistema {
+      background: #d36e2d; color: white; border: none;
+      border-radius: 8px; padding: 12px 28px; font-size: 15px;
+      font-weight: 600; cursor: pointer; width: 100%;
+      display: flex; align-items: center; justify-content: center;
+      gap: 8px; transition: background 0.15s;
+    }
+    .btn-sistema:hover { background: #b85e25; }
+    .btn-sistema:disabled { background: #ccc; cursor: not-allowed; }
+
+    .btn-sistema.secundario {
+      background: white; color: #d36e2d;
+      border: 2px solid #d36e2d;
+    }
+    .btn-sistema.secundario:hover { background: #fff4ec; }
+
+    /* Input de arquivo oculto + botão estilizado */
+    #service-photo { display: none; }
+    .btn-arquivo {
+      background: white; color: #555; border: 1px solid #ddd;
+      border-radius: 8px; padding: 10px 20px; font-size: 14px;
+      font-weight: 500; cursor: pointer; display: inline-flex;
+      align-items: center; gap: 8px; transition: border-color 0.15s, background 0.15s;
+      margin-top: 10px;
+    }
+    .btn-arquivo:hover { border-color: #e07b39; background: #fff9f5; color: #e07b39; }
 
     /* ── Category chips ── */
     .cat-grid {
@@ -171,6 +201,18 @@
       gap: 9px; transition: background 0.15s;
     }
     .btn-whats:hover { background: #1ebe5a; }
+
+    /* ── Botão Concluído (injetado pelo app.js) ── */
+    .btn-secondary {
+      background: white; color: #d36e2d;
+      border: 2px solid #d36e2d; border-radius: 8px;
+      padding: 12px 28px; font-size: 15px; font-weight: 600;
+      cursor: pointer; width: 100%; margin-top: 10px;
+      display: flex; align-items: center; justify-content: center;
+      gap: 8px; transition: background 0.15s;
+    }
+    .btn-secondary:hover { background: #fff4ec; }
+    .btn-secondary:disabled { opacity: 0.6; cursor: not-allowed; }
 
     /* ── Responsive ── */
     @media (max-width: 768px) {
@@ -339,11 +381,14 @@
           <div class="drop-sub">JPG ou PNG · máximo 5 fotos · serão incluídas no orçamento</div>
         </div>
         <input type="file" id="service-photo" accept="image/jpeg,image/png" multiple onchange="previewFotos(event)" />
+        <button type="button" class="btn-arquivo" onclick="document.getElementById('service-photo').click()">
+          📎 Escolher arquivos
+        </button>
         <div class="photo-thumbs" id="photo-preview-container"></div>
       </div>
       <!-- Botão Salvar -->
       <div class="field-group btn-area" style="margin-top:8px;">
-        <button id="btn-save-draft" type="button" style="background:#d36e2d;color:white;border:none;border-radius:8px;padding:12px 28px;font-size:15px;font-weight:600;cursor:pointer;width:100%;">
+        <button id="btn-save-draft" type="button" class="btn-sistema">
           💾 Salvar OS
         </button>
       </div>
