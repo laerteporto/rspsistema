@@ -394,13 +394,15 @@
     }
 
     /* Salvar OS como rascunho */
-    function salvarRascunho() {
+    async function salvarRascunho() {
       const clienteEl = document.getElementById('select-cliente');
       const cats = getCategoriasSelecionadas();
       const valor = document.getElementById('valor-servico').value;
       const desc = document.getElementById('descricao-servico') ? document.getElementById('descricao-servico').value : '';
+
       if (!clienteEl.value) { alert('Selecione um cliente antes de salvar.'); return; }
       if (cats.length === 0) { alert('Selecione ao menos uma categoria.'); return; }
+
       const cliente = clienteEl.options[clienteEl.selectedIndex];
       const order = {
         id: Date.now().toString(),
@@ -412,17 +414,26 @@
         status: 'pending',
         date: new Date().toISOString()
       };
+
+      // Desabilitar botão para evitar duplo clique
+      const btn = document.querySelector('button[onclick="salvarRascunho()"]');
+      if (btn) { btn.disabled = true; btn.textContent = '⏳ Salvando...'; }
+
       if (window._persistOrder) {
-        window._persistOrder(order).then(() => {
+        try {
+          await window._persistOrder(order);
           alert('✅ OS salva com sucesso!');
           window.location.href = 'index.html';
-        });
+        } catch (err) {
+          console.error('Erro ao salvar OS no Firebase:', err);
+          alert('❌ Erro ao salvar OS: ' + (err.message || 'Falha na conexão com o servidor. Verifique as regras do Firestore.'));
+          if (btn) { btn.disabled = false; btn.textContent = '💾 Salvar OS'; }
+        }
       } else {
-        const orders = JSON.parse(localStorage.getItem('rsp_orders') || '[]');
-        orders.push(order);
-        localStorage.setItem('rsp_orders', JSON.stringify(orders));
-        alert('✅ OS salva com sucesso!');
-        window.location.href = 'index.html';
+        // Firebase não disponível — avisa o usuário em vez de silenciar
+        console.warn('[RSP] window._persistOrder não definido. Firebase pode não ter carregado.');
+        alert('⚠️ Firebase não disponível. Verifique a conexão e recarregue a página.\n\nSe o problema persistir, verifique as Regras do Firestore no console do Firebase.');
+        if (btn) { btn.disabled = false; btn.textContent = '💾 Salvar OS'; }
       }
     }
 
