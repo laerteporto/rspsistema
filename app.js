@@ -14,6 +14,12 @@ const firebaseConfig = {
 let db = null;
 
 function initFirebase() {
+    // Verifica se o SDK do Firebase foi carregado antes de usar
+    if (typeof firebase === 'undefined') {
+        console.error('❌ Firebase SDK não carregado! Adicione os <script> do Firebase antes do app.js.');
+        db = null;
+        return;
+    }
     try {
         if (!firebase.apps || firebase.apps.length === 0) {
             firebase.initializeApp(firebaseConfig);
