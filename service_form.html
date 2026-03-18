@@ -572,6 +572,66 @@
     }
 
     // ── enviarWhatsapp agora gerenciado pelo app.js btn-send-whatsapp listener ──
+
+    /* ══ Modal: Novo Serviço ══ */
+    var ICONS_MODAL = ['🔧','🛠️','💧','⚡','🖌️','🌿','📋','🔩','🪛','🪚',
+                       '🏗️','🧱','🪟','🚿','🔌','💡','🧹','🪴','🛁','🚪','🧰','⚙️','🏠','🔨'];
+
+    function abrirModalServico() {
+      var picker = document.getElementById('icon-picker');
+      if (picker && picker.children.length === 0) {
+        ICONS_MODAL.forEach(function(ic) {
+          var btn = document.createElement('button');
+          btn.type = 'button'; btn.textContent = ic; btn.title = ic;
+          btn.style.cssText = 'width:38px;height:38px;border:1.5px solid #e0ddd6;border-radius:8px;background:white;font-size:18px;cursor:pointer;transition:all .15s;';
+          btn.onclick = function() {
+            document.getElementById('modal-cat-icon').value = ic;
+            picker.querySelectorAll('button').forEach(function(b) {
+              b.style.borderColor = '#e0ddd6'; b.style.background = 'white';
+            });
+            btn.style.borderColor = '#e07b39'; btn.style.background = '#fff4ec';
+          };
+          picker.appendChild(btn);
+        });
+        picker.querySelector('button').click();
+      }
+      var modal = document.getElementById('modal-servico');
+      modal.style.display = 'flex';
+      document.getElementById('modal-cat-nome').value = '';
+      document.getElementById('modal-cat-erro').style.display = 'none';
+      setTimeout(function() { document.getElementById('modal-cat-nome').focus(); }, 100);
+    }
+
+    function fecharModalServico() {
+      document.getElementById('modal-servico').style.display = 'none';
+    }
+
+    function salvarModalServico() {
+      var nome = (document.getElementById('modal-cat-nome').value || '').trim();
+      var icon = document.getElementById('modal-cat-icon').value || '🔧';
+      var erroEl = document.getElementById('modal-cat-erro');
+      if (!nome) {
+        erroEl.textContent = 'Informe o nome do serviço.';
+        erroEl.style.display = 'block';
+        document.getElementById('modal-cat-nome').focus();
+        return;
+      }
+      var jaExiste = Array.from(document.querySelectorAll('#cat-grid input[type="checkbox"]'))
+        .some(function(i) { return i.value.toLowerCase() === nome.toLowerCase(); });
+      if (jaExiste) {
+        erroEl.textContent = 'Já existe um serviço com este nome.';
+        erroEl.style.display = 'block';
+        return;
+      }
+      adicionarNovoChip(nome, icon);
+      fecharModalServico();
+    }
+
+    document.addEventListener('click', function(e) {
+      var modal = document.getElementById('modal-servico');
+      if (modal && e.target === modal) fecharModalServico();
+    });
+
   </script>
 
 </body>
