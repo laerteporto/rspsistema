@@ -797,23 +797,10 @@ async function initServiceForm() {
             const settings   = LS.getSettings();
 
             let approvalUrl;
-<<<<<<< HEAD
             const pubUrl = (settings.publicUrl || '').trim()
                 .replace(/\/+$/, '')                          // remove trailing slashes
                 .replace(/\/quote_approval.*$/i, '');         // remove sufixo se vier colado
             if (pubUrl && pubUrl.startsWith('http')) {
-=======
-            // Limpa a URL pública: remove barra final, remove qualquer página .html do final
-            // Ex: "https://rspsistema.vercel.app/login.html" → "https://rspsistema.vercel.app"
-            const pubUrlRaw = (settings.publicUrl || '').trim();
-            const pubUrl = pubUrlRaw
-                .replace(/\/+$/, '')          // remove barras no final
-                .replace(/\/[^/]+\.html$/, ''); // remove /qualquer-coisa.html do final
-
-            if (pubUrl) {
->>>>>>> 0552d5fb5a74e40da79bdb36544731539663c3ce
-                approvalUrl = pubUrl + '/quote_approval.html?id=' + currentOSId;
-            } else {
                 showToast('⚠️ Configure a URL Pública em Configurações!', 'error', 7000);
                 const base = window.location.href.substring(0, window.location.href.lastIndexOf('/'));
                 approvalUrl = base + '/quote_approval.html?id=' + currentOSId;
@@ -1381,8 +1368,6 @@ function initConfigPage() {
 
     form.addEventListener('submit', e => {
         e.preventDefault();
-<<<<<<< HEAD
-=======
         const pubUrl = document.getElementById('config-public-url');
         // Limpa a URL antes de salvar: remove barra final e qualquer .html do final
         const rawUrl = pubUrl ? pubUrl.value.trim() : '';
@@ -1390,22 +1375,18 @@ function initConfigPage() {
             .replace(/\/+$/, '')
             .replace(/\/[^/]+\.html$/, '');
 
->>>>>>> 0552d5fb5a74e40da79bdb36544731539663c3ce
         LS.saveSettings({
             companyName: document.getElementById('config-company-name').value.trim(),
             owner:       document.getElementById('config-owner').value.trim(),
             phone:       document.getElementById('config-phone').value.trim(),
-<<<<<<< HEAD
             publicUrl:   FIXED_PUBLIC_URL,   // sempre fixa, ignora o que estiver no campo
         });
         if (pubEl) pubEl.value = FIXED_PUBLIC_URL; // garante exibição correta
-=======
             publicUrl:   cleanUrl,
         });
 
         // Atualiza o campo com a URL limpa para o usuário ver
         if (pubUrl) pubUrl.value = cleanUrl;
->>>>>>> 0552d5fb5a74e40da79bdb36544731539663c3ce
         showToast('✅ Configurações salvas!', 'success');
     });
 }
