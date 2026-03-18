@@ -225,7 +225,7 @@
         </div>
         <div class="cat-grid">
 
-          <label class="cat-chip" onclick="toggleCat(this)">
+          <label class="cat-chip" onclick="toggleCat(event, this)">
             <input type="checkbox" value="Instalações">
             <span class="chip-icon">🔧</span>
             <span class="chip-label">Instalações</span>
@@ -236,7 +236,7 @@
             </div>
           </label>
 
-          <label class="cat-chip" onclick="toggleCat(this)">
+          <label class="cat-chip" onclick="toggleCat(event, this)">
             <input type="checkbox" value="Reparos">
             <span class="chip-icon">🛠️</span>
             <span class="chip-label">Reparos</span>
@@ -247,7 +247,7 @@
             </div>
           </label>
 
-          <label class="cat-chip" onclick="toggleCat(this)">
+          <label class="cat-chip" onclick="toggleCat(event, this)">
             <input type="checkbox" value="Hidráulica">
             <span class="chip-icon">💧</span>
             <span class="chip-label">Hidráulica</span>
@@ -258,7 +258,7 @@
             </div>
           </label>
 
-          <label class="cat-chip" onclick="toggleCat(this)">
+          <label class="cat-chip" onclick="toggleCat(event, this)">
             <input type="checkbox" value="Elétrica">
             <span class="chip-icon">⚡</span>
             <span class="chip-label">Elétrica</span>
@@ -269,7 +269,7 @@
             </div>
           </label>
 
-          <label class="cat-chip" onclick="toggleCat(this)">
+          <label class="cat-chip" onclick="toggleCat(event, this)">
             <input type="checkbox" value="Pintura">
             <span class="chip-icon">🖌️</span>
             <span class="chip-label">Pintura</span>
@@ -280,7 +280,7 @@
             </div>
           </label>
 
-          <label class="cat-chip" onclick="toggleCat(this)">
+          <label class="cat-chip" onclick="toggleCat(event, this)">
             <input type="checkbox" value="Jardinagem">
             <span class="chip-icon">🌿</span>
             <span class="chip-label">Jardinagem</span>
@@ -291,7 +291,7 @@
             </div>
           </label>
 
-          <label class="cat-chip" onclick="toggleCat(this)">
+          <label class="cat-chip" onclick="toggleCat(event, this)">
             <input type="checkbox" value="Outros">
             <span class="chip-icon">📋</span>
             <span class="chip-label">Outros</span>
@@ -430,7 +430,8 @@
     document.addEventListener('DOMContentLoaded', carregarClientes);
 
     /* Marcar/desmarcar categoria */
-    function toggleCat(chip) {
+    function toggleCat(e, chip) {
+      e.preventDefault();
       chip.classList.toggle('selected');
       const cb = chip.querySelector('input[type="checkbox"]');
       if (cb) cb.checked = chip.classList.contains('selected');
