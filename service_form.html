@@ -178,11 +178,56 @@
     .photo-drop:hover { background: #fff4ec; }
     .drop-text { color: #e07b39; font-size: 14px; font-weight: 600; margin-top: 8px; }
     .drop-sub { font-size: 12px; color: #bbb; margin-top: 3px; }
-    #photo-input { display: none; }
-    .photo-thumbs { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+
+    /* Grid de miniaturas das fotos */
+    .photo-thumbs {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin-top: 14px;
+    }
+    /* Wrapper de cada foto (usado pelo app.js) */
     .photo-thumb {
-      width: 72px; height: 72px; border-radius: 6px;
-      object-fit: cover; border: 1px solid #e0ddd6;
+      position: relative;
+      width: 100%;
+      padding-top: 100%; /* quadrado responsivo */
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #e0ddd6;
+      background: #f5f3ef;
+    }
+    .photo-thumb img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 8px;
+      display: block;
+    }
+    /* Botão remover foto */
+    .photo-thumb .remove-btn {
+      position: absolute;
+      top: 4px; right: 4px;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.55);
+      color: white; border: none;
+      font-size: 11px; font-weight: 700;
+      cursor: pointer; display: flex;
+      align-items: center; justify-content: center;
+      line-height: 1; transition: background 0.15s;
+      z-index: 2;
+    }
+    .photo-thumb .remove-btn:hover { background: #c62828; }
+    /* Fallback: foto direto sem wrapper (previewFotos inline) */
+    .photo-thumbs > img {
+      width: 100%; aspect-ratio: 1/1;
+      object-fit: cover; border-radius: 8px;
+      border: 1px solid #e0ddd6; display: block;
+    }
+    @media (max-width: 600px) {
+      .photo-thumbs { grid-template-columns: repeat(3, 1fr); }
     }
 
     /* ── Sidebar ── */
@@ -456,22 +501,35 @@
       el.value = v.replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     }
 
-    /* Preview de fotos */
+    /* Preview de fotos — container correto + botão remover + limite 5 */
     function previewFotos(e) {
-      const files = Array.from(e.target.files).slice(0, 5);
-      const container = document.getElementById('photo-thumbs');
-      container.innerHTML = '';
+      const container = document.getElementById('photo-preview-container');
+      if (!container) return;
+      const existing = container.querySelectorAll('.photo-thumb').length;
+      const slots = 5 - existing;
+      if (slots <= 0) { alert('Máximo de 5 fotos já adicionadas.'); e.target.value = ''; return; }
+      const files = Array.from(e.target.files).slice(0, slots);
       files.forEach(file => {
         const reader = new FileReader();
         reader.onload = ev => {
+          const wrap = document.createElement('div');
+          wrap.className = 'photo-thumb';
           const img = document.createElement('img');
           img.src = ev.target.result;
-          img.className = 'photo-thumb';
-          img.title = file.name;
-          container.appendChild(img);
+          img.alt = file.name;
+          const btn = document.createElement('button');
+          btn.className = 'remove-btn';
+          btn.type = 'button';
+          btn.textContent = '✕';
+          btn.title = 'Remover foto';
+          btn.onclick = () => wrap.remove();
+          wrap.appendChild(img);
+          wrap.appendChild(btn);
+          container.appendChild(wrap);
         };
         reader.readAsDataURL(file);
       });
+      e.target.value = ''; // permite re-selecionar o mesmo arquivo
     }
 
     // ── enviarWhatsapp agora gerenciado pelo app.js btn-send-whatsapp listener ──
