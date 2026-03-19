@@ -25,6 +25,9 @@ function initFirebase() {
             firebase.initializeApp(firebaseConfig);
         }
         db = firebase.firestore();
+        // Desativa cache offline — todos os dispositivos sempre buscam do servidor
+        db.clearPersistence().catch(function(){});
+        db.settings({ ignoreUndefinedProperties: true });
         console.log('🔥 Firebase instanciado');
     } catch (e) {
         console.warn('⚠️ Firebase indisponível:', e.message);
@@ -453,7 +456,7 @@ async function initDashboard() {
         }
 
         // 2a. Leitura única imediata — renderiza antes do onSnapshot registrar
-        firestore.collection('orders').get().then(function(snap) {
+        firestore.collection('orders').get({ source: 'server' }).then(function(snap) {
             var localDeleted = [];
             try { localDeleted = JSON.parse(localStorage.getItem('rsp_deleted_ids')) || []; } catch(e) {}
             const fromFirebase = snap.docs.map(function(d) { return d.data(); })
