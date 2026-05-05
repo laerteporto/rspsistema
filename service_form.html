@@ -538,12 +538,36 @@
 
 
 
-    /* Formatar valor como moeda brasileira */
+    /* Formatar valor como moeda brasileira
+       Usuário digita normalmente: 3500 → 3.500 | 3500,00 → 3.500,00
+       SEM dividir por 100 */
     function formatarValor(el) {
-      let v = el.value.replace(/\D/g, '');
-      if (!v) { el.value = ''; return; }
-      v = (parseInt(v) / 100).toFixed(2);
-      el.value = v.replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      const cursorPos = el.selectionStart;
+      const oldLength = el.value.length;
+
+      // Mantém apenas dígitos e vírgula
+      let v = el.value.replace(/[^\d,]/g, '');
+
+      // Permite somente uma vírgula
+      const partes = v.split(',');
+      if (partes.length > 2) {
+        v = partes[0] + ',' + partes.slice(1).join('');
+      }
+
+      // Limita a 2 casas decimais
+      const [inteiro = '', decimal] = v.split(',');
+      const decimalLimitado = decimal !== undefined ? decimal.slice(0, 2) : undefined;
+
+      // Formata separador de milhar na parte inteira
+      const inteiroFormatado = inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+      el.value = decimalLimitado !== undefined
+        ? inteiroFormatado + ',' + decimalLimitado
+        : inteiroFormatado;
+
+      // Reposiciona cursor
+      const newLength = el.value.length;
+      el.setSelectionRange(cursorPos + (newLength - oldLength), cursorPos + (newLength - oldLength));
     }
 
     /* Preview de fotos — container correto + botão remover + limite 5 */
