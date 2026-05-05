@@ -643,7 +643,8 @@ async function initServiceForm() {
     }
 
     function buildOrder(id, status) {
-        const raw = (document.getElementById('service-value').value || '0').replace(/[^\d,.]/g,'').replace(',','.');
+        // Remove pontos de milhar (ex: "3.500,00" → "3500.00") antes de converter para float
+        const raw = (document.getElementById('service-value').value || '0').replace(/[^\d,.]/g,'').replace(/\./g,'').replace(',','.');
         return {
             id,
             clientName:   getClientName() || 'Cliente',
@@ -669,13 +670,7 @@ async function initServiceForm() {
             document.getElementById('service-description').value = ex.description || '';
             const hn = document.getElementById('client-name');
             if (hn) hn.value = ex.clientName || '';
-            // Formata o valor salvo (ex: 3500 → "3.500,00" | 3.5 → "3,50") para exibição correta no campo
-            (function() {
-                var num = parseFloat(ex.value) || 0;
-                var parts = num.toFixed(2).split('.');
-                var inteiro = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-                document.getElementById('service-value').value = inteiro + ',' + parts[1];
-            })();
+            document.getElementById('service-value').value = (ex.value || 0).toFixed(2).replace('.', ',');
 
             const ps = ex.photosBase64 || (ex.photoBase64 ? [ex.photoBase64] : []);
             ps.forEach(p => { photos.push(p); renderThumb(p); });
