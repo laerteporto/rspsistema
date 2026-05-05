@@ -14,20 +14,11 @@ const firebaseConfig = {
 let db = null;
 
 function initFirebase() {
-    // Verifica se o SDK do Firebase foi carregado antes de usar
-    if (typeof firebase === 'undefined') {
-        console.error('❌ Firebase SDK não carregado! Adicione os <script> do Firebase antes do app.js.');
-        db = null;
-        return;
-    }
     try {
         if (!firebase.apps || firebase.apps.length === 0) {
             firebase.initializeApp(firebaseConfig);
         }
         db = firebase.firestore();
-        // Desativa cache offline — todos os dispositivos sempre buscam do servidor
-        db.clearPersistence().catch(function(){});
-        db.settings({ ignoreUndefinedProperties: true });
         console.log('🔥 Firebase instanciado');
     } catch (e) {
         console.warn('⚠️ Firebase indisponível:', e.message);
@@ -191,20 +182,7 @@ const LS = {
     },
 };
 
-// ─── Aguarda Firebase estar pronto (até 5s) ─────────────────────────────────
-function waitForFirebase(timeoutMs) {
-    timeoutMs = timeoutMs || 5000;
-    return new Promise(function(resolve) {
-        if (db) { resolve(db); return; }
-        var start = Date.now();
-        var interval = setInterval(function() {
-            if (db) { clearInterval(interval); resolve(db); return; }
-            if (Date.now() - start > timeoutMs) { clearInterval(interval); resolve(null); }
-        }, 100);
-    });
-}
-
-// ─── Persist Order: localStorage imediato + Firebase com await ────────────
+// ─── Persist Order: localStorage imediato + Firebase background ────────────
 async function persistOrder(orderData) {
     const id = String(orderData.id);
 
@@ -215,24 +193,18 @@ async function persistOrder(orderData) {
     LS.saveOrders(orders);
     console.log('💾 OS #' + id + ' salva local');
 
-    // 2. Aguarda Firebase estar pronto antes de salvar (corrige race condition)
-    const firestore = await waitForFirebase();
-    if (firestore) {
+    // 2. Firebase — aguarda confirmação para garantir que o cliente acesse
+    if (db) {
         try {
-            await firestore.collection('orders').doc(id).set(orderData);
+            await db.collection('orders').doc(id).set(orderData);
             console.log('☁️ OS #' + id + ' confirmada no Firebase');
             return true;
         } catch(e) {
             console.error('❌ Firebase OS FALHOU:', e.code, e.message);
-            if (e.code === 'permission-denied') {
-                showToast('⚠️ Permissão negada. Verifique as Regras do Firestore no console do Firebase.', 'error', 10000);
-            } else {
-                showToast('⚠️ Salvo localmente. Firebase indisponível: ' + e.message, 'error', 8000);
-            }
+            showToast('⚠️ Salvo localmente. Firebase indisponível: ' + e.message, 'error', 8000);
             return false;
         }
     }
-    console.warn('⚠️ Firebase não disponível após 5s — OS salva apenas localmente');
     return true;
 }
 
@@ -447,53 +419,45 @@ async function initDashboard() {
     // 1. Mostra cache local imediatamente (resposta visual rápida)
     renderOrders(LS.getOrders());
 
-    // 2. Busca imediata do Firebase — garante dados frescos em QUALQUER navegador
-    //    Isso resolve o problema de navegadores sem cache local desatualizado
-    waitForFirebase().then(function(firestore) {
-        if (!firestore) {
-            console.warn('⚠️ Firebase não conectou — dashboard em modo offline');
-            return;
-        }
+    // 2. onSnapshot — escuta mudanças em TEMPO REAL no Firebase
+    //    Quando qualquer dispositivo exclui/cria/altera uma OS no Firebase,
+    //    TODOS os outros dispositivos com o dashboard aberto atualizam automaticamente.
+    if (db) {
+        db.collection('orders').onSnapshot(snap => {
+            // Firebase retorna exatamente o que existe na nuvem agora
+            // Se o celular excluiu → snap.docs não terá essa OS → PC remove também
+            const fromFirebase = snap.docs.map(d => d.data());
 
-        // 2a. Leitura única imediata — renderiza antes do onSnapshot registrar
-        firestore.collection('orders').get({ source: 'server' }).then(function(snap) {
+            // Filtra apenas OS que este dispositivo excluiu localmente
+            // (evita race condition: excluiu localmente mas Firebase ainda não processou)
             var localDeleted = [];
             try { localDeleted = JSON.parse(localStorage.getItem('rsp_deleted_ids')) || []; } catch(e) {}
-            const fromFirebase = snap.docs.map(function(d) { return d.data(); })
-                .filter(function(o) { return localDeleted.indexOf(String(o.id)) === -1; });
-            localStorage.setItem('rsp_orders', JSON.stringify(fromFirebase));
-            renderOrders(fromFirebase);
-            console.log('📥 Firebase get(): ' + fromFirebase.length + ' OS carregadas');
-        }).catch(function(e) {
-            console.warn('⚠️ Firebase get() falhou:', e.message);
-        });
+            const toShow = fromFirebase.filter(o => localDeleted.indexOf(String(o.id)) === -1);
 
-        // 2b. onSnapshot — mantém sincronização em tempo real após a leitura inicial
-        firestore.collection('orders').onSnapshot(function(snap) {
-            var localDeleted = [];
-            try { localDeleted = JSON.parse(localStorage.getItem('rsp_deleted_ids')) || []; } catch(e) {}
-            const toShow = snap.docs.map(function(d) { return d.data(); })
-                .filter(function(o) { return localDeleted.indexOf(String(o.id)) === -1; });
+            // ─── AUTORITATIVO: substitui localStorage completamente pelo Firebase ───
+            // Isso garante que exclusão feita no celular remove do PC também
             localStorage.setItem('rsp_orders', JSON.stringify(toShow));
+
             renderOrders(toShow);
-            console.log('🔴 onSnapshot: ' + toShow.length + ' OS · Firebase → sincronizado');
-        }, function(err) {
+            console.log('🔴 onSnapshot: ' + toShow.length + ' OS · Firebase → PC sincronizado');
+
+        }, err => {
             console.warn('⚠️ onSnapshot erro:', err.message);
-            if (err.code === 'permission-denied') {
-                console.warn('⚠️ Permissão negada no onSnapshot. Verifique as Regras do Firestore.');
-            }
+            // Fallback sem tempo real
+            db.collection('orders').get()
+                .then(s => { const o = s.docs.map(d => d.data()); LS.saveOrders(o); renderOrders(o); })
+                .catch(() => {});
         });
-    });
+    }
 
     // 3. Sobe OS locais que ainda não estão no Firebase (apenas novas, nunca re-sobe deletadas)
-    waitForFirebase().then(function() { _uploadLocalOnlyOrders(); });
+    setTimeout(() => _uploadLocalOnlyOrders(), 3000);
 }
 
 // Sobe para o Firebase apenas OS que existem no local mas NÃO no Firebase
 // Nunca re-sobe OS que foram deletadas em outro dispositivo
 async function _uploadLocalOnlyOrders() {
-    const firestore = await waitForFirebase();
-    if (!firestore) return;
+    if (!db) return;
     var localDeleted = [];
     try { localDeleted = JSON.parse(localStorage.getItem('rsp_deleted_ids')) || []; } catch(e) {}
 
@@ -501,28 +465,23 @@ async function _uploadLocalOnlyOrders() {
     if (!local.length) return;
 
     try {
-        const snap = await firestore.collection('orders').get();
-        const remoteIds = new Set(snap.docs.map(function(d) { return d.id; }));
+        const snap = await db.collection('orders').get();
+        const remoteIds = new Set(snap.docs.map(d => d.id));
 
         for (const o of local) {
             const id = String(o.id);
+            // Só sobe se: não está no Firebase E não foi deletada
             if (!remoteIds.has(id) && localDeleted.indexOf(id) === -1) {
                 try {
-                    await firestore.collection('orders').doc(id).set(o);
+                    await db.collection('orders').doc(id).set(o);
                     console.log('⬆️ OS #' + id + ' enviada ao Firebase');
                 } catch(e) {
-                    if (e.code === 'permission-denied') {
-                        console.warn('⬆️ Permissão negada ao enviar OS #' + id + '. Verifique as Regras do Firestore.');
-                        break; // Sem tentar as demais se permissão negada
-                    }
                     console.warn('⬆️ Falha OS #' + id + ':', e.message);
                 }
             }
         }
     } catch(e) {
-        if (e.code !== 'permission-denied') {
-            console.warn('_uploadLocalOnlyOrders:', e.message);
-        }
+        console.warn('_uploadLocalOnlyOrders:', e.message);
     }
 }
 
@@ -649,55 +608,16 @@ async function initServiceForm() {
         }
     };
 
-    // ── Comprime imagem via Canvas antes de salvar (evita limite 1MB do Firestore) ──
-    function compressImage(file, maxWidth, maxHeight, quality) {
-        maxWidth  = maxWidth  || 800;
-        maxHeight = maxHeight || 800;
-        quality   = quality   || 0.72;
-        return new Promise(function(resolve) {
-            const reader = new FileReader();
-            reader.onload = function(ev) {
-                const img = new Image();
-                img.onload = function() {
-                    let w = img.width, h = img.height;
-                    // Redimensiona mantendo proporção
-                    if (w > maxWidth || h > maxHeight) {
-                        const ratio = Math.min(maxWidth / w, maxHeight / h);
-                        w = Math.round(w * ratio);
-                        h = Math.round(h * ratio);
-                    }
-                    const canvas = document.createElement('canvas');
-                    canvas.width = w; canvas.height = h;
-                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                    const compressed = canvas.toDataURL('image/jpeg', quality);
-                    console.log('📷 Foto comprimida: ' +
-                        Math.round(ev.target.result.length / 1024) + 'KB → ' +
-                        Math.round(compressed.length / 1024) + 'KB');
-                    resolve(compressed);
-                };
-                img.src = ev.target.result;
-            };
-            reader.readAsDataURL(file);
-        });
-    }
-
     if (photoInput) {
-        photoInput.addEventListener('change', async function(e) {
+        photoInput.addEventListener('change', e => {
             const files = Array.from(e.target.files);
             const slots = 5 - photos.length;
             if (slots <= 0) { showToast('Máximo de 5 fotos já atingido.', 'error'); photoInput.value = ''; return; }
-            const toProcess = files.slice(0, slots);
-            for (const file of toProcess) {
-                try {
-                    const compressed = await compressImage(file);
-                    photos.push(compressed);
-                    renderThumb(compressed);
-                    updateCount();
-                } catch(err) {
-                    console.warn('Erro ao processar foto:', err);
-                    showToast('⚠️ Erro ao carregar foto: ' + file.name, 'error');
-                }
-            }
+            files.slice(0, slots).forEach(file => {
+                const r = new FileReader();
+                r.onload = ev => { photos.push(ev.target.result); renderThumb(ev.target.result); updateCount(); };
+                r.readAsDataURL(file);
+            });
             photoInput.value = '';
         });
     }
@@ -728,14 +648,7 @@ async function initServiceForm() {
             id,
             clientName:   getClientName() || 'Cliente',
             phone:        (document.getElementById('client-phone').value || '').trim(),
-            // Lê categorias dos chips visuais (pode ser múltipla) — fallback para select oculto
-            category:     (function() {
-                const chips = Array.from(document.querySelectorAll('.cat-chip.selected'))
-                    .map(function(c) { const cb = c.querySelector('input'); return cb ? cb.value : ''; })
-                    .filter(Boolean);
-                if (chips.length) return chips.join(', ');
-                return document.getElementById('service-category').value || '';
-            })(),
+            category:     document.getElementById('service-category').value || '',
             description:  document.getElementById('service-description').value || '',
             value:        parseFloat(raw) || 0,
             photosBase64: photos,
@@ -744,81 +657,39 @@ async function initServiceForm() {
         };
     }
 
-    // Modo edição — carrega todos os campos da OS existente
+    // Modo edição
     const editId = new URLSearchParams(window.location.search).get('id');
     if (editId) {
         currentOSId = parseInt(editId, 10);
         const all = await loadAllOrders();
         const ex  = all.find(o => String(o.id) === String(editId));
         if (ex) {
-            // ── Telefone ──
-            document.getElementById('client-phone').value = ex.phone || '';
-
-            // ── Nome do cliente (suporta campo legado "client" e novo "clientName") ──
-            const nomeCliente = ex.clientName || ex.client || '';
-            const hn = document.getElementById('client-name');
-            if (hn) hn.value = nomeCliente;
-
-            // ── Descrição ──
+            document.getElementById('client-phone').value        = ex.phone       || '';
+            document.getElementById('service-category').value    = ex.category    || '';
             document.getElementById('service-description').value = ex.description || '';
+            const hn = document.getElementById('client-name');
+            if (hn) hn.value = ex.clientName || '';
+            // Formata o valor salvo (ex: 3500 → "3.500,00" | 3.5 → "3,50") para exibição correta no campo
+            (function() {
+                var num = parseFloat(ex.value) || 0;
+                var parts = num.toFixed(2).split('.');
+                var inteiro = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                document.getElementById('service-value').value = inteiro + ',' + parts[1];
+            })();
 
-            // ── Valor ──
-            const rawVal = parseFloat(String(ex.value || '0').replace(',', '.')) || 0;
-            document.getElementById('service-value').value = rawVal.toFixed(2).replace('.', ',');
-
-            // ── Categorias — marca chips pelo valor (estático + extras) ──
-            if (ex.category) {
-                const cats = ex.category.split(',').map(function(c) { return c.trim(); }).filter(Boolean);
-                // Aguarda extras serem carregados antes de marcar
-                function marcarCats() {
-                    document.querySelectorAll('.cat-chip').forEach(function(chip) {
-                        const cb = chip.querySelector('input[type="checkbox"]');
-                        if (cb && cats.indexOf(cb.value) !== -1) {
-                            chip.classList.add('selected');
-                            cb.checked = true;
-                        }
-                    });
-                    const sel = document.getElementById('service-category');
-                    if (sel) sel.value = cats[0] || '';
-                }
-                // Pequeno delay para garantir que carregarExtras() já rodou
-                setTimeout(marcarCats, 50);
-            }
-
-            // ── Fotos ──
             const ps = ex.photosBase64 || (ex.photoBase64 ? [ex.photoBase64] : []);
             ps.forEach(p => { photos.push(p); renderThumb(p); });
             updateCount();
 
-            // ── Título da página ──
             const h2 = document.getElementById('page-title');
             if (h2) h2.textContent = `Editar OS #${currentOSId}`;
 
-            // ── Seleciona cliente no dropdown pelo telefone ──
-            // Tenta match exato primeiro, depois sem formatação
-            if (ex.phone && clientSelect) {
-                const phoneRaw = ex.phone.replace(/\D/g, '');
-                let found = false;
+            if (ex.phone) {
                 for (let i = 0; i < clientSelect.options.length; i++) {
-                    const optRaw = (clientSelect.options[i].value || '').replace(/\D/g, '');
-                    if (optRaw === phoneRaw) {
-                        clientSelect.selectedIndex = i;
-                        found = true;
-                        break;
-                    }
-                }
-                // Se não achou pelo telefone, tenta pelo nome
-                if (!found && nomeCliente) {
-                    for (let i = 0; i < clientSelect.options.length; i++) {
-                        if ((clientSelect.options[i].dataset.name || '').toLowerCase() === nomeCliente.toLowerCase()) {
-                            clientSelect.selectedIndex = i;
-                            break;
-                        }
-                    }
+                    if (clientSelect.options[i].value === ex.phone) { clientSelect.selectedIndex = i; break; }
                 }
             }
 
-            // ── Botão "Concluir" para OS aprovadas ──
             if (ex.status === 'approved') {
                 const area = document.querySelector('.btn-area');
                 if (area) {
