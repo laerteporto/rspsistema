@@ -421,6 +421,7 @@ async function initDashboard() {
         if (el('stat-pending'))    el('stat-pending').textContent    = byStatus('pending') + byStatus('awaiting_approval');
         if (el('stat-inprogress')) el('stat-inprogress').textContent = byStatus('approved');
         if (el('stat-completed'))  el('stat-completed').textContent  = byStatus('completed');
+        if (el('stat-rejected'))   el('stat-rejected').textContent   = byStatus('rejected');
     }
 
     // 1. Mostra cache local imediatamente (resposta visual rápida)
