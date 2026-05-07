@@ -418,7 +418,12 @@ function renderOrder(order) {
 
         <div class="greeting">
             <h2>Olá, ${esc(order.clientName || 'Cliente')} 👋</h2>
-            <p>Segue o orçamento para o serviço de <strong>${esc(order.category || 'serviço')}</strong>.</p>
+            <p>Segue o orçamento para o serviço de <strong>${(function(){
+                const cats = (order.categories && order.categories.length)
+                    ? order.categories
+                    : (order.category ? order.category.split(',').map(function(s){return s.trim();}) : ['serviço']);
+                return cats.map(function(c){ return esc(c); }).join(' · ');
+            })()}</strong>.</p>
         </div>
 
         <div class="amount-block">
