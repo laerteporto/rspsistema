@@ -392,7 +392,14 @@ async function initDashboard() {
             tr.innerHTML = `
                 <td data-label="OS #"><strong>#${o.id}</strong></td>
                 <td data-label="Cliente">${escHtml(o.clientName || '-')}</td>
-                <td data-label="Categoria"><span style="background:var(--primary-light);color:var(--primary-dark);padding:.2rem .6rem;border-radius:4px;font-size:.8rem;font-weight:600;">${escHtml(o.category || '-')}</span></td>
+                <td data-label="Categoria">${(function(){
+                    const cats = (o.categories && o.categories.length)
+                        ? o.categories
+                        : (o.category ? o.category.split(',').map(function(s){return s.trim();}) : ['-']);
+                    return cats.map(function(c){
+                        return '<span style="background:var(--primary-light);color:var(--primary-dark);padding:.2rem .6rem;border-radius:4px;font-size:.8rem;font-weight:600;margin-right:3px;display:inline-block;">' + escHtml(c) + '</span>';
+                    }).join('');
+                })()}</td>
                 <td data-label="Data" style="color:var(--text-muted);font-size:.88rem;">${new Date(o.date).toLocaleDateString('pt-BR')}</td>
                 <td data-label="Status">${statusBadge(o.status)}</td>
                 <td>
@@ -645,11 +652,16 @@ async function initServiceForm() {
     function buildOrder(id, status) {
         // Remove pontos de milhar (ex: "3.500,00" → "3500.00") antes de converter para float
         const raw = (document.getElementById('service-value').value || '0').replace(/[^\d,.]/g,'').replace(/\./g,'').replace(',','.');
+        // Lê TODAS as categorias selecionadas pelos chips
+        const allCats = (typeof getCategoriasSelecionadas === 'function')
+            ? getCategoriasSelecionadas()
+            : [document.getElementById('service-category').value].filter(Boolean);
         return {
             id,
             clientName:   getClientName() || 'Cliente',
             phone:        (document.getElementById('client-phone').value || '').trim(),
-            category:     document.getElementById('service-category').value || '',
+            categories:   allCats,                          // array com todas as categorias
+            category:     allCats[0] || '',                 // retrocompatibilidade (primeira)
             description:  document.getElementById('service-description').value || '',
             value:        parseFloat(raw) || 0,
             photosBase64: photos,
@@ -666,7 +678,19 @@ async function initServiceForm() {
         const ex  = all.find(o => String(o.id) === String(editId));
         if (ex) {
             document.getElementById('client-phone').value        = ex.phone       || '';
-            document.getElementById('service-category').value    = ex.category    || '';
+            // Restaura TODAS as categorias nos chips visuais
+            const catsToLoad = ex.categories || (ex.category ? [ex.category] : []);
+            setTimeout(() => {
+                document.querySelectorAll('.cat-chip').forEach(chip => {
+                    const cb = chip.querySelector('input[type="checkbox"]');
+                    if (cb && catsToLoad.includes(cb.value)) {
+                        chip.classList.add('selected');
+                        cb.checked = true;
+                    }
+                });
+                const sel = document.getElementById('service-category');
+                if (sel && catsToLoad.length > 0) sel.value = catsToLoad[0];
+            }, 0);
             document.getElementById('service-description').value = ex.description || '';
             const hn = document.getElementById('client-name');
             if (hn) hn.value = ex.clientName || '';
