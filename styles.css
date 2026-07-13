@@ -3,10 +3,10 @@
 :root {
     --primary-color: #db5b02; /* Orange from the RSP logo */
     --secondary-color: #404040; /* Charcoal grey from the "S/P" of the logo */
-    --bg-color: #404040; /* Charcoal background matching the logo */
-    --surface-color: #f5f5f5; /* Light grey for cards/containers */
-    --text-color: #111111;
-    --text-muted: #555555;
+    --bg-color: #eceef0; /* Light neutral page background (keeps dark text readable) */
+    --surface-color: #ffffff; /* White for cards/containers */
+    --text-color: #1a1a1a;
+    --text-muted: #5a5a5a;
     
     --success-color: #2e7d32;
     --danger-color: #c62828;
